@@ -303,7 +303,7 @@ MonoBehaviour:
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
   m_DynamicPixelsPerUnit: 1
-  m_PresetInfoIsWorld: 1
+  m_PresetInfoIsWorld: 0
 --- !u!223 &503964688
 Canvas:
   m_ObjectHideFlags: 0
@@ -399,7 +399,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c75e3c2a38bcdb54fa85291fbdc940af, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TileMatch.View.InputView
-  _camera: {fileID: 0}
+  _camera: {fileID: 773731540}
 --- !u!4 &520972118
 Transform:
   m_ObjectHideFlags: 0
@@ -630,7 +630,7 @@ Camera:
   far clip plane: 1000
   field of view: 60
   orthographic: 1
-  orthographic size: 5
+  orthographic size: 6
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
