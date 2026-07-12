@@ -551,8 +551,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TileMatch.Installer.GameplayInstaller
   _targetLevel: {fileID: 11400000, guid: 7ed0c7faa99efdb45a55faef57ea100f, type: 2}
-  _inputView: {fileID: 0}
-  _visualView: {fileID: 0}
+  _inputView: {fileID: 520972117}
+  _visualView: {fileID: 520972116}
 --- !u!4 &626697779
 Transform:
   m_ObjectHideFlags: 0
