@@ -6,10 +6,11 @@ using UnityEngine;
 namespace TileMatch.Controller
 {
     /// <summary>
-    /// Owns the 6-slot rack array. Allocates tiles that matched no active order.
-    /// Fires <see cref="TileRoutedToRackSignal"/> on every allocation so the
-    /// VisualView can animate the tile into its slot.
-    /// Fires <see cref="RackFullSignal"/> immediately when all 6 slots are occupied.
+    /// Subscribes to <see cref="TileUnmatchedSignal"/>. Owns the 6-slot rack
+    /// array. Allocates tiles that matched no active order, fires
+    /// <see cref="TileRoutedToRackSignal"/> so the VisualView can animate the
+    /// tile into its slot, and fires <see cref="RackFullSignal"/> immediately
+    /// when all 6 slots are occupied. Has no knowledge of any other controller.
     /// </summary>
     public class RackController
     {
@@ -20,21 +21,24 @@ namespace TileMatch.Controller
         {
             _state     = state;
             _signalBus = signalBus;
+
+            _signalBus.Subscribe<TileUnmatchedSignal>(OnTileUnmatched);
+        }
+
+        public void Dispose()
+        {
+            _signalBus.Unsubscribe<TileUnmatchedSignal>(OnTileUnmatched);
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        /// <summary>
-        /// Allocates <paramref name="tile"/> to the first free rack slot.
-        /// If no slot is free (shouldn't occur under normal flow) the rack-full
-        /// guard fires <see cref="RackFullSignal"/> defensively.
-        /// </summary>
-        public void AllocateTile(TileSaveData tile)
+        private void OnTileUnmatched(TileUnmatchedSignal signal)
         {
+            TileSaveData tile = signal.Tile;
             int slot = FindFreeSlot();
 
             if (slot < 0)
             {
-                Debug.Log("[RackController] No free slot — rack overflow guard triggered. Firing RackFullSignal.");
+                Debug.Log("[RackController] No free slot — overflow guard triggered. Firing RackFullSignal.");
                 _signalBus.Fire(new RackFullSignal());
                 return;
             }
@@ -47,7 +51,7 @@ namespace TileMatch.Controller
 
             if (occupied >= RuntimeGameState.RackCapacity)
             {
-                Debug.Log("[RackController] Rack is full. Firing RackFullSignal.");
+                Debug.Log("[RackController] Rack full — firing RackFullSignal.");
                 _signalBus.Fire(new RackFullSignal());
             }
         }

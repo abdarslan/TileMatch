@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using TileMatch.Model;
 using TileMatch.Service;
 using TileMatch.Signal;
@@ -8,22 +7,21 @@ namespace TileMatch.Controller
 {
     /// <summary>
     /// Owns the runtime board dictionary. Validates whether a tapped tile is
-    /// reachable (unblocked), removes it, propagates the unblocking cascade to
-    /// child tiles, then passes the tile to <see cref="OrderController"/>.
+    /// reachable (exists and unblocked), removes it, propagates the unblocking
+    /// cascade, then fires <see cref="TileValidatedSignal"/> for downstream
+    /// controllers to consume. Has no knowledge of orders or the rack.
     /// </summary>
     public class LevelController
     {
         private readonly RuntimeGameState _state;
-        private readonly OrderController  _orderController;
         private readonly SignalBus        _signalBus;
 
         private bool _active;
 
-        public LevelController(RuntimeGameState state, OrderController orderController, SignalBus signalBus)
+        public LevelController(RuntimeGameState state, SignalBus signalBus)
         {
-            _state           = state;
-            _orderController = orderController;
-            _signalBus       = signalBus;
+            _state     = state;
+            _signalBus = signalBus;
 
             _signalBus.Subscribe<TileTapIntentSignal>(OnTileTapIntent);
             _signalBus.Subscribe<RackFullSignal>(OnGameEnded);
@@ -32,10 +30,7 @@ namespace TileMatch.Controller
             _active = true;
         }
 
-        public void Dispose()
-        {
-            Deactivate();
-        }
+        public void Dispose() => Deactivate();
 
         // ─────────────────────────────────────────────────────────────────────
         private void OnTileTapIntent(TileTapIntentSignal signal)
@@ -50,29 +45,25 @@ namespace TileMatch.Controller
 
             if (tile.blockingTileIDs.Count > 0)
             {
-                Debug.Log($"[LevelController] TileID {signal.TileID} is blocked by {tile.blockingTileIDs.Count} tile(s) — ignoring.");
+                Debug.Log($"[LevelController] TileID {signal.TileID} blocked by {tile.blockingTileIDs.Count} tile(s) — ignoring.");
                 return;
             }
 
             _state.RuntimeTiles.Remove(tile.tileID);
             UnblockDependents(tile.tileID);
 
-            Debug.Log($"[LevelController] TileID {tile.tileID} (type {tile.typeID}) removed from board. Remaining: {_state.RuntimeTiles.Count}.");
+            Debug.Log($"[LevelController] TileID {tile.tileID} (type {tile.typeID}) removed. Remaining: {_state.RuntimeTiles.Count}.");
 
-            _orderController.RouteTile(tile);
+            _signalBus.Fire(new TileValidatedSignal { Tile = tile });
         }
 
-        /// <summary>
-        /// Removes <paramref name="removedTileID"/> from every remaining tile's
-        /// blockingTileIDs list. Runs in O(N) over the remaining board tiles.
-        /// </summary>
         private void UnblockDependents(int removedTileID)
         {
             foreach (TileSaveData tile in _state.RuntimeTiles.Values)
                 tile.blockingTileIDs.Remove(removedTileID);
         }
 
-        private void OnGameEnded(RackFullSignal signal)      => Deactivate();
+        private void OnGameEnded(RackFullSignal signal)       => Deactivate();
         private void OnGameEnded(LevelCompletedSignal signal) => Deactivate();
 
         private void Deactivate()
@@ -84,7 +75,7 @@ namespace TileMatch.Controller
             _signalBus.Unsubscribe<RackFullSignal>(OnGameEnded);
             _signalBus.Unsubscribe<LevelCompletedSignal>(OnGameEnded);
 
-            Debug.Log("[LevelController] Deactivated — no longer processing tile taps.");
+            Debug.Log("[LevelController] Deactivated.");
         }
     }
 }
