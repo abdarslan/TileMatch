@@ -1,0 +1,25 @@
+using UnityEngine;
+
+namespace TileMatch.View
+{
+    /// <summary>
+    /// Lightweight identity component placed on every pooled tile GameObject.
+    /// Holds the logical tileID so InputView's raycast can identify which tile
+    /// was tapped without searching any dictionary. Set once by VisualView on spawn.
+    /// </summary>
+    [RequireComponent(typeof(Collider2D))]
+    public class TileView : MonoBehaviour
+    {
+        public int TileID { get; private set; }
+        public int TypeID { get; private set; }
+
+        [SerializeField] private SpriteRenderer _spriteRenderer;
+
+        public void Setup(int tileID, int typeID, Sprite icon)
+        {
+            TileID = tileID;
+            TypeID = typeID;
+            _spriteRenderer.sprite = icon;
+        }
+    }
+}

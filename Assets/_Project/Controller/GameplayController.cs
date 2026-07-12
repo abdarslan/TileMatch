@@ -45,6 +45,7 @@ namespace TileMatch.Controller
         {
             PopulateRuntimeState(level);
             CurrentState = GameState.Playing;
+            _signalBus.Fire(new LevelStartedSignal { Level = level });
 
             Debug.Log($"[GameplayController] Level started. " +
                       $"Tiles: {_state.RuntimeTiles.Count}, " +

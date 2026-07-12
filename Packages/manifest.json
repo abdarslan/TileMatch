@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "com.benoitfreslon.vibration": "https://github.com/BenoitFreslon/Vibration.git",
+    "com.cysharp.unitask": "https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask",
     "com.ivanmurzak.unity.mcp": "0.83.1",
     "com.unity.2d.animation": "13.0.5",
     "com.unity.2d.aseprite": "3.0.2",
