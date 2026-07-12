@@ -13,13 +13,13 @@ namespace TileMatch.View
         public int TileID { get; private set; }
         public int TypeID { get; private set; }
 
-        [SerializeField] private SpriteRenderer _spriteRenderer;
+        [SerializeField] private SpriteRenderer _iconRenderer;
 
         public void Setup(int tileID, int typeID, Sprite icon)
         {
             TileID = tileID;
             TypeID = typeID;
-            _spriteRenderer.sprite = icon;
+            _iconRenderer.sprite = icon;
         }
     }
 }
