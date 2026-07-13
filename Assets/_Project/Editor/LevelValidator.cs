@@ -273,7 +273,7 @@ namespace TileMatch.Editor
             private List<int> _blockingIDs;
             public List<int>  BlockingIDs => _blockingIDs;
 
-            public SimTile(TileSaveData data)
+            public SimTile(TileData data)
             {
                 ID                = data.tileID;
                 TypeID            = data.typeID;

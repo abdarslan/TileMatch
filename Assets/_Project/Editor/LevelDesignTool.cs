@@ -2,21 +2,24 @@ using System.Collections.Generic;
 using System.Linq;
 using TileMatch.Model;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEngine;
 
 namespace TileMatch.Editor
 {
     public class LevelDesignTool : EditorWindow
     {
-        // ── Constants ────────────────────────────────────────────────────────
-        private const float CellSize         = 36f;
-        private const float HalfCell         = CellSize * 0.5f;
+        // ── Constants & Dynamic Scaling ──────────────────────────────────────
+        private float CellSize         => 36f * _zoom;
+        private float HalfCell         => CellSize * 0.5f;
         private const float GridPadding      = 8f;
-        private const float PaletteIconSize  = 48f;
+        private float PaletteIconSize  => 48f * _zoom;
         private const float SidebarWidth     = 220f;
         private const float ToolbarHeight    = 26f;
         private const int   MaxTypeID        = 15;
         private const string SpritesPath     = "Assets/_Project/Sprites";
+
+        private float _zoom = 1.0f;
 
         // ── State: target asset ─────────────────────────────────────────────
         private LevelData _level;
@@ -48,6 +51,7 @@ namespace TileMatch.Editor
         // ── State: orders ────────────────────────────────────────────────────
         private Vector2 _orderScrollPos;
         private bool    _orderFoldout = true;
+        private ReorderableList _orderList;
 
         // ── State: palette sprites ───────────────────────────────────────────
         private Sprite[] _palette;
@@ -56,6 +60,7 @@ namespace TileMatch.Editor
         // ── State: scroll ─────────────────────────────────────────────────
         private Vector2 _gridScrollPos;
         private Vector2 _mainScrollPos;
+        private Vector2 _paletteScrollPos;
 
         // ── GUIStyles (lazy) ─────────────────────────────────────────────────
         private GUIStyle _cellStyle;
@@ -135,6 +140,7 @@ namespace TileMatch.Editor
             {
                 DrawSidebar();
                 DrawMainArea();
+                DrawRightSidebar();
             }
 
             ProcessKeyboardShortcuts();
@@ -155,8 +161,6 @@ namespace TileMatch.Editor
                 DrawLayerSection();
                 EditorGUILayout.Space(6);
                 DrawToolSection();
-                EditorGUILayout.Space(6);
-                DrawPaletteSection();
                 GUILayout.FlexibleSpace();
                 DrawBakeSection();
                 EditorGUILayout.Space(4);
@@ -166,17 +170,106 @@ namespace TileMatch.Editor
         private void DrawTargetAssetSection()
         {
             GUILayout.Label("Target Level", _headerStyle);
-            EditorGUI.BeginChangeCheck();
-            _level = (LevelData)EditorGUILayout.ObjectField(_level, typeof(LevelData), false);
-            if (EditorGUI.EndChangeCheck() && _level != null)
-                ImportFromLevel();
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                EditorGUI.BeginChangeCheck();
+                _level = (LevelData)EditorGUILayout.ObjectField(_level, typeof(LevelData), false);
+                if (EditorGUI.EndChangeCheck() && _level != null)
+                {
+                    ImportFromLevel();
+                    InitializeReorderableList();
+                }
+
+                if (_level != null && GUILayout.Button("New", GUILayout.Width(45)))
+                {
+                    _level = null;
+                    InitCells();
+                    _orderList = null;
+                }
+            }
 
             if (_level == null)
             {
                 EditorGUILayout.HelpBox("Assign a LevelData asset to begin.", MessageType.Info);
                 if (GUILayout.Button("Create New LevelData"))
+                {
                     CreateNewLevel();
+                    InitializeReorderableList();
+                }
             }
+        }
+
+        private void InitializeReorderableList()
+        {
+            if (_level == null) return;
+            _orderList = new ReorderableList(_level.pendingOrders, typeof(OrderData), true, false, true, true);
+            
+            _orderList.elementHeightCallback = (int index) => {
+                if (index >= _level.pendingOrders.Count) return 40f;
+                var order = _level.pendingOrders[index];
+                return 46f + (order.requiredTypeIDs.Count * 30f);
+            };
+
+            _orderList.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) => {
+                if (index >= _level.pendingOrders.Count) return;
+                var order = _level.pendingOrders[index];
+                
+                rect.y += 6; 
+                rect.height -= 12;
+
+                Color originalBg = GUI.backgroundColor;
+                GUI.backgroundColor = order.requiredTypeIDs.Count < 3 ? new Color(1f, 0.6f, 0.6f) : new Color(0.6f, 1f, 0.6f);
+                GUI.Box(new Rect(rect.x, rect.y, rect.width, rect.height), GUIContent.none, EditorStyles.helpBox);
+                GUI.backgroundColor = originalBg;
+
+                rect.y += 4; rect.x += 4; rect.width -= 8;
+                EditorGUI.LabelField(new Rect(rect.x, rect.y, rect.width, 22), $"Order {index + 1}", EditorStyles.boldLabel);
+                rect.y += 28;
+
+                for (int j = 0; j < order.requiredTypeIDs.Count; j++)
+                {
+                    int typeID = order.requiredTypeIDs[j];
+                    int newType = EditorGUI.IntSlider(new Rect(rect.x, rect.y, rect.width - 65, 20), typeID, 1, MaxTypeID);
+                    if (newType != typeID)
+                    {
+                        Undo.RecordObject(_level, "Edit Order Slot");
+                        order.requiredTypeIDs[j] = newType;
+                        EditorUtility.SetDirty(_level);
+                    }
+
+                    if (_palette != null && newType >= 1 && newType <= MaxTypeID && _palette[newType] != null)
+                        GUI.DrawTexture(new Rect(rect.x + rect.width - 60, rect.y - 4, 28, 28), _palette[newType].texture);
+
+                    if (GUI.Button(new Rect(rect.x + rect.width - 25, rect.y, 25, 20), "-"))
+                    {
+                        Undo.RecordObject(_level, "Remove Order Slot");
+                        order.requiredTypeIDs.RemoveAt(j);
+                        EditorUtility.SetDirty(_level);
+                        break;
+                    }
+                    rect.y += 30;
+                }
+
+                if (GUI.Button(new Rect(rect.x, rect.y, rect.width, 20), "+ Add Slot"))
+                {
+                    Undo.RecordObject(_level, "Add Order Slot");
+                    order.requiredTypeIDs.Add(1);
+                    EditorUtility.SetDirty(_level);
+                }
+            };
+
+            _orderList.onAddCallback = (ReorderableList l) => {
+                Undo.RecordObject(_level, "Add Order");
+                _level.pendingOrders.Add(new OrderData { requiredTypeIDs = new List<int>() });
+                EditorUtility.SetDirty(_level);
+            };
+
+            _orderList.onRemoveCallback = (ReorderableList l) => {
+                Undo.RecordObject(_level, "Remove Order");
+                ReorderableList.defaultBehaviours.DoRemoveButton(l);
+                EditorUtility.SetDirty(_level);
+            };
         }
 
         private void DrawGridConfigSection()
@@ -187,6 +280,10 @@ namespace TileMatch.Editor
             _gridCols   = Mathf.Clamp(EditorGUILayout.IntField("Columns",  _gridCols),  2, 20);
             _gridRows   = Mathf.Clamp(EditorGUILayout.IntField("Rows",     _gridRows),  2, 20);
             _layerCount = Mathf.Clamp(EditorGUILayout.IntField("Z Layers", _layerCount), 1, 12);
+            
+            EditorGUILayout.Space(4);
+            _zoom = EditorGUILayout.Slider("Zoom UI", _zoom, 0.5f, 4.0f);
+
             if (EditorGUI.EndChangeCheck())
                 ResizeCells();
         }
@@ -239,39 +336,35 @@ namespace TileMatch.Editor
 
         private void DrawPaletteSection()
         {
-            GUILayout.Label("Tile Type", _headerStyle);
+            GUILayout.Label("Tile Types Palette", _headerStyle);
 
             if (!_paletteLoaded) return;
 
-            int perRow = Mathf.Max(1, Mathf.FloorToInt(SidebarWidth / (PaletteIconSize + 4)));
-
-            EditorGUILayout.BeginVertical();
-            for (int i = 1; i <= MaxTypeID; i += perRow)
+            _paletteScrollPos = EditorGUILayout.BeginScrollView(_paletteScrollPos, GUILayout.Height(PaletteIconSize + 30));
+            EditorGUILayout.BeginHorizontal();
+            
+            for (int i = 1; i <= MaxTypeID; i++)
             {
-                EditorGUILayout.BeginHorizontal();
-                for (int j = 0; j < perRow && (i + j) <= MaxTypeID; j++)
+                bool selected = _selectedType == i;
+
+                Color prev = GUI.backgroundColor;
+                GUI.backgroundColor = selected ? Color.yellow : prev;
+
+                GUIContent content = _palette[i] != null
+                    ? new GUIContent(_palette[i].texture, $"Type {i}")
+                    : new GUIContent(i.ToString());
+
+                if (GUILayout.Button(content, GUILayout.Width(PaletteIconSize), GUILayout.Height(PaletteIconSize)))
                 {
-                    int typeID = i + j;
-                    bool selected = _selectedType == typeID;
-
-                    Color prev = GUI.backgroundColor;
-                    GUI.backgroundColor = selected ? Color.yellow : prev;
-
-                    GUIContent content = _palette[typeID] != null
-                        ? new GUIContent(_palette[typeID].texture, $"Type {typeID}")
-                        : new GUIContent(typeID.ToString());
-
-                    if (GUILayout.Button(content, GUILayout.Width(PaletteIconSize), GUILayout.Height(PaletteIconSize)))
-                    {
-                        _selectedType = typeID;
-                        _eraseMode    = false;
-                    }
-
-                    GUI.backgroundColor = prev;
+                    _selectedType = i;
+                    _eraseMode    = false;
                 }
-                EditorGUILayout.EndHorizontal();
+
+                GUI.backgroundColor = prev;
             }
-            EditorGUILayout.EndVertical();
+            
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.EndScrollView();
         }
 
         private void DrawBakeSection()
@@ -309,7 +402,8 @@ namespace TileMatch.Editor
                 _mainScrollPos = EditorGUILayout.BeginScrollView(_mainScrollPos);
                 DrawGrid();
                 EditorGUILayout.Space(12);
-                DrawOrderEditor();
+                DrawPaletteSection();
+                EditorGUILayout.Space(12);
                 DrawValidationPanel();
                 EditorGUILayout.EndScrollView();
             }
@@ -479,11 +573,58 @@ namespace TileMatch.Editor
             Undo.RecordObject(this, _eraseMode ? "Erase Tile" : "Paint Tile");
             _cells[_activeLayer][col, row] = newValue;
 
+            if (!_eraseMode && newValue != 0)
+            {
+                AutoAddOrderIfNeeded(newValue);
+            }
+
             _showBlocking   = false;
             _lastValidation = null;
 
             e.Use();
             Repaint();
+        }
+
+        private void AutoAddOrderIfNeeded(int typeID)
+        {
+            if (_level == null) return;
+
+            OrderData targetOrder = null;
+            for (int i = 0; i < _level.pendingOrders.Count; i++)
+            {
+                var order = _level.pendingOrders[i];
+                if (order.requiredTypeIDs.Count < 3)
+                {
+                    if (order.requiredTypeIDs.Count == 0 || order.requiredTypeIDs[0] == typeID)
+                    {
+                        targetOrder = order;
+                        break;
+                    }
+                }
+            }
+
+            Undo.RecordObject(_level, "Auto Add Order Item");
+            if (targetOrder == null)
+            {
+                targetOrder = new OrderData { requiredTypeIDs = new List<int>() };
+                _level.pendingOrders.Add(targetOrder);
+            }
+
+            targetOrder.requiredTypeIDs.Add(typeID);
+            EditorUtility.SetDirty(_level);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════════════════════
+        // RIGHT SIDEBAR (Palette + Orders)
+        // ══════════════════════════════════════════════════════════════════════
+        private void DrawRightSidebar()
+        {
+            using (new EditorGUILayout.VerticalScope(GUILayout.Width(320)))
+            {
+                EditorGUILayout.Space(4);
+                DrawOrderEditor();
+            }
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -496,71 +637,17 @@ namespace TileMatch.Editor
             _orderFoldout = EditorGUILayout.Foldout(_orderFoldout, "Pending Orders", true, EditorStyles.foldoutHeader);
             if (!_orderFoldout) return;
 
-            EditorGUI.indentLevel++;
-            _orderScrollPos = EditorGUILayout.BeginScrollView(_orderScrollPos, GUILayout.MaxHeight(180));
+            if (_orderList == null && _level.pendingOrders != null)
+                InitializeReorderableList();
 
-            for (int i = 0; i < _level.pendingOrders.Count; i++)
+            if (_orderList != null)
             {
-                OrderData order = _level.pendingOrders[i];
-                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
-                {
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        GUILayout.Label($"Order {i + 1}", EditorStyles.boldLabel);
-                        GUILayout.FlexibleSpace();
-                        if (GUILayout.Button("X", GUILayout.Width(22), GUILayout.Height(18)))
-                        {
-                            Undo.RecordObject(_level, "Remove Order");
-                            _level.pendingOrders.RemoveAt(i);
-                            EditorUtility.SetDirty(_level);
-                            break;
-                        }
-                    }
-
-                    for (int j = 0; j < order.requiredTypeIDs.Count; j++)
-                    {
-                        using (new EditorGUILayout.HorizontalScope())
-                        {
-                            int newType = EditorGUILayout.IntSlider($"  Slot {j + 1}", order.requiredTypeIDs[j], 1, MaxTypeID);
-                            if (newType != order.requiredTypeIDs[j])
-                            {
-                                Undo.RecordObject(_level, "Edit Order Slot");
-                                order.requiredTypeIDs[j] = newType;
-                                EditorUtility.SetDirty(_level);
-                            }
-
-                            if (_palette != null && newType >= 1 && newType <= MaxTypeID && _palette[newType] != null)
-                                GUILayout.Label(new GUIContent(_palette[newType].texture), GUILayout.Width(22), GUILayout.Height(22));
-
-                            if (GUILayout.Button("-", GUILayout.Width(22)))
-                            {
-                                Undo.RecordObject(_level, "Remove Order Slot");
-                                order.requiredTypeIDs.RemoveAt(j);
-                                EditorUtility.SetDirty(_level);
-                                break;
-                            }
-                        }
-                    }
-
-                    if (GUILayout.Button("+ Add Slot"))
-                    {
-                        Undo.RecordObject(_level, "Add Order Slot");
-                        order.requiredTypeIDs.Add(1);
-                        EditorUtility.SetDirty(_level);
-                    }
-                }
+                EditorGUI.indentLevel++;
+                _orderScrollPos = EditorGUILayout.BeginScrollView(_orderScrollPos);
+                _orderList.DoLayoutList();
+                EditorGUILayout.EndScrollView();
+                EditorGUI.indentLevel--;
             }
-
-            EditorGUILayout.EndScrollView();
-
-            if (GUILayout.Button("+ Add Order"))
-            {
-                Undo.RecordObject(_level, "Add Order");
-                _level.pendingOrders.Add(new OrderData());
-                EditorUtility.SetDirty(_level);
-            }
-
-            EditorGUI.indentLevel--;
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -603,7 +690,7 @@ namespace TileMatch.Editor
         {
             Undo.RecordObject(_level, "Bake Level");
 
-            List<TileSaveData> allTiles = BuildTileList();
+            List<TileData> allTiles = BuildTileList();
             BakeBlockingRelationships(allTiles);
 
             _level.activeTiles = allTiles;
@@ -625,10 +712,47 @@ namespace TileMatch.Editor
             Repaint();
         }
 
-        private List<TileSaveData> BuildTileList()
+        private float GetBaseTileSize()
         {
-            var list  = new List<TileSaveData>();
+            return 1.0f;
+        }
+
+        private List<TileData> BuildTileList()
+        {
+            var list  = new List<TileData>();
             int nextID = 1;
+
+            int minC = int.MaxValue;
+            int maxC = int.MinValue;
+            int minR = int.MaxValue;
+            int maxR = int.MinValue;
+
+            for (int l = 0; l < _layerCount; l++)
+            {
+                for (int c = 0; c < _gridCols; c++)
+                {
+                    for (int r = 0; r < _gridRows; r++)
+                    {
+                        if (_cells[l][c, r] != 0)
+                        {
+                            if (c < minC) minC = c;
+                            if (c > maxC) maxC = c;
+                            if (r < minR) minR = r;
+                            if (r > maxR) maxR = r;
+                        }
+                    }
+                }
+            }
+
+            float baseSize = GetBaseTileSize();
+            float offsetX = 0f;
+            float offsetY = 0f;
+
+            if (minC <= maxC)
+            {
+                offsetX = (minC + maxC) * baseSize * 0.5f;
+                offsetY = (minR + maxR) * baseSize * 0.5f;
+            }
 
             for (int l = 0; l < _layerCount; l++)
             {
@@ -639,11 +763,11 @@ namespace TileMatch.Editor
                         int typeID = _cells[l][c, r];
                         if (typeID == 0) continue;
 
-                        list.Add(new TileSaveData
+                        list.Add(new TileData
                         {
                             tileID          = nextID++,
                             typeID          = typeID,
-                            visualPosition  = new Vector3(c * 0.5f, r * 0.5f, l),
+                            visualPosition  = new Vector3(c * baseSize - offsetX, offsetY - r * baseSize, l),
                             blockingTileIDs = new List<int>()
                         });
                     }
@@ -653,19 +777,21 @@ namespace TileMatch.Editor
             return list;
         }
 
-        private void BakeBlockingRelationships(List<TileSaveData> tiles)
+        private void BakeBlockingRelationships(List<TileData> tiles)
         {
-            var byLayer = new Dictionary<int, List<TileSaveData>>();
+            var byLayer = new Dictionary<int, List<TileData>>();
             foreach (var t in tiles)
             {
                 int layer = Mathf.RoundToInt(t.visualPosition.z);
                 if (!byLayer.ContainsKey(layer))
-                    byLayer[layer] = new List<TileSaveData>();
+                    byLayer[layer] = new List<TileData>();
                 byLayer[layer].Add(t);
             }
 
-            // Footprint: each tile occupies [x-0.5, x+0.5] x [y-0.5, y+0.5] in world space
-            const float half    = 0.5f;
+            // Footprint: each tile occupies [x-halfW, x+halfW] x [y-halfH, y+halfH] in world space
+            float halfSize = GetBaseTileSize() * 0.5f;
+            float halfX = halfSize;
+            float halfY = halfSize;
             const float epsilon = 0.001f;
 
             foreach (var lower in tiles)
@@ -683,8 +809,8 @@ namespace TileMatch.Editor
                     float ux = upper.visualPosition.x;
                     float uy = upper.visualPosition.y;
 
-                    bool overlapsX = lx + half - ux > epsilon && ux + half - lx > epsilon;
-                    bool overlapsY = ly + half - uy > epsilon && uy + half - ly > epsilon;
+                    bool overlapsX = lx + halfX - ux > epsilon && ux + halfX - lx > epsilon;
+                    bool overlapsY = ly + halfY - uy > epsilon && uy + halfY - ly > epsilon;
 
                     if (overlapsX && overlapsY)
                         lower.blockingTileIDs.Add(upper.tileID);
