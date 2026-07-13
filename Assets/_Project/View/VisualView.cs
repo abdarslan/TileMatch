@@ -39,11 +39,12 @@ namespace TileMatch.View
         [Header("Icons — element index == typeID (index 0 unused, typeIDs start at 1)")]
         [SerializeField] private Sprite[] _typeIcons;
         // ── Animation tuning ─────────────────────────────────────────────────
-        private const float TilePickupDuration  = 0.10f;
-        private const float TileRouteDuration   = 0.32f;
-        private const float TilePickupScale     = 1.15f;
-        private const float RackShakeDuration   = 0.40f;
-        private const float WinPunchScale       = 1.30f;
+        [Header("Animation Durations")]
+        [SerializeField] private float TilePickupDuration  = 0.10f;
+        [SerializeField] private float TileRouteDuration   = 0.50f;
+        [SerializeField] private float TilePickupScale     = 1.20f;
+        [SerializeField] private float RackShakeDuration   = 0.40f;
+        [SerializeField] private float WinPunchScale       = 1.30f;
 
         // ── Runtime state ─────────────────────────────────────────────────────
         private SignalBus                   _signalBus;
@@ -70,6 +71,7 @@ namespace TileMatch.View
             _signalBus.Subscribe<TileRoutedFromRackToTraySignal>(OnTileRoutedFromRackToTray);
             _signalBus.Subscribe<RackFullSignal>(OnRackFull);
             _signalBus.Subscribe<LevelCompletedSignal>(OnLevelCompleted);
+            _signalBus.Subscribe<TileUnblockedSignal>(OnTileUnblocked);
         }
 
         private void OnDestroy()
@@ -85,6 +87,7 @@ namespace TileMatch.View
             _signalBus.Unsubscribe<TileRoutedFromRackToTraySignal>(OnTileRoutedFromRackToTray);
             _signalBus.Unsubscribe<RackFullSignal>(OnRackFull);
             _signalBus.Unsubscribe<LevelCompletedSignal>(OnLevelCompleted);
+            _signalBus.Unsubscribe<TileUnblockedSignal>(OnTileUnblocked);
         }
 
         // ── Pool ──────────────────────────────────────────────────────────────
@@ -165,8 +168,8 @@ namespace TileMatch.View
         {
             if (!_activeTiles.TryGetValue(signal.Tile.tileID, out TileView view)) return;
             _activeTiles.Remove(signal.Tile.tileID);
-            
             view.SetSortingOrder(30000);
+            view.PlayDissappearAnimation();
 
             int trayIndex = Mathf.Clamp(signal.TargetTrayIndex, 0, _traySlots.Length - 1);
             OrderTrayView tray = _traySlots[trayIndex];
@@ -202,6 +205,7 @@ namespace TileMatch.View
             view.transform.localScale = _originalTileScale;
             view.gameObject.SetActive(true);
             view.Setup(-1, signal.TypeID, GetIcon(signal.TypeID));
+            view.DisableBg();
             view.SetSortingOrder(30000);
 
             rackSlot.Clear();
@@ -215,7 +219,7 @@ namespace TileMatch.View
             _activeTiles.Remove(signal.Tile.tileID);
             
             view.SetSortingOrder(30000);
-
+            view.PlayDissappearAnimation();
             int slotIndex = Mathf.Clamp(signal.TargetRackIndex, 0, _rackSlots.Length - 1);
             RackSlotView slot = _rackSlots[slotIndex];
             Sprite icon = GetIcon(signal.Tile.typeID);
@@ -246,6 +250,14 @@ namespace TileMatch.View
             PlayWinFeedbackAsync(_levelCts.Token).Forget();
         }
 
+        private void OnTileUnblocked(TileUnblockedSignal signal)
+        {
+            if (_activeTiles.TryGetValue(signal.TileID, out TileView view))
+            {
+                view.SetBlockedState(false);
+            }
+        }
+
         private void SpawnTile(TileData data)
         {
             Sprite icon  = GetIcon(data.typeID);
@@ -262,6 +274,7 @@ namespace TileMatch.View
             view.transform.localScale = _originalTileScale;
             view.gameObject.SetActive(true);
             view.Setup(data.tileID, data.typeID, icon);
+            view.SetBlockedState(data.blockingTileIDs.Count > 0);
             
             int sortingOrder = Mathf.RoundToInt(data.visualPosition.z * 1000f) - Mathf.RoundToInt(data.visualPosition.y * 100f);
             view.SetSortingOrder(sortingOrder);
@@ -291,7 +304,6 @@ namespace TileMatch.View
             TileView tile, Vector3 destination, bool returnToPool, CancellationToken ct)
         {
             Transform t = tile.transform;
-
             // 1. Pickup pop
             await t.DOScale(_originalTileScale * TilePickupScale, TilePickupDuration)
                    .SetEase(Ease.OutBack)

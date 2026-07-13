@@ -60,7 +60,15 @@ namespace TileMatch.Controller
         private void UnblockDependents(int removedTileID)
         {
             foreach (TileData tile in _state.RuntimeTiles.Values)
-                tile.blockingTileIDs.Remove(removedTileID);
+            {
+                if (tile.blockingTileIDs.Remove(removedTileID))
+                {
+                    if (tile.blockingTileIDs.Count == 0)
+                    {
+                        _signalBus.Fire(new TileUnblockedSignal { TileID = tile.tileID });
+                    }
+                }
+            }
         }
 
         private void OnGameEnded(RackFullSignal signal)       => Deactivate();

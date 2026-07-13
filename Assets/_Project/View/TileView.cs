@@ -1,5 +1,5 @@
 using UnityEngine;
-
+using DG.Tweening;
 namespace TileMatch.View
 {
     /// <summary>
@@ -14,19 +14,54 @@ namespace TileMatch.View
         public int TypeID { get; private set; }
 
         [SerializeField] private SpriteRenderer _iconRenderer;
+        [SerializeField] private Transform _tileBg;
+
+        [SerializeField] private ParticleSystem _dustParticles;
+        [SerializeField] private float _blockedBrightness = 0.4f;
 
         public void Setup(int tileID, int typeID, Sprite icon)
         {
+            ResetVisuals();
             TileID = tileID;
             TypeID = typeID;
             _iconRenderer.sprite = icon;
         }
 
+        public int SortingOrder { get; private set; }
+
         public void SetSortingOrder(int order)
         {
-            var baseRenderer = GetComponent<SpriteRenderer>();
+            SortingOrder = order;
+            var baseRenderer = _tileBg.GetComponent<SpriteRenderer>();
             if (baseRenderer != null) baseRenderer.sortingOrder = order;
             if (_iconRenderer != null) _iconRenderer.sortingOrder = order + 1;
+        }
+        public void ResetVisuals() {
+            _tileBg.gameObject.SetActive(true);
+            _tileBg.localScale = Vector3.one;
+        }
+
+        public void PlayDissappearAnimation()
+        {
+            _dustParticles.Play();
+            _tileBg.DOScale(Vector3.zero, 0.15f).SetEase(Ease.InBack).OnComplete(() => 
+            {
+                DisableBg();
+            });
+        }
+
+        public void SetBlockedState(bool isBlocked)
+        {
+            float alpha = isBlocked ? _blockedBrightness : 1f;
+            Color c = new Color(alpha, alpha, alpha, 1f);
+            
+            var baseRenderer = _tileBg.GetComponent<SpriteRenderer>();
+            if (baseRenderer != null) baseRenderer.color = c;
+            if (_iconRenderer != null) _iconRenderer.color = c;
+        }
+        public void DisableBg()
+        {
+            _tileBg.gameObject.SetActive(false);
         }
     }
 }

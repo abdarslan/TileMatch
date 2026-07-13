@@ -34,15 +34,27 @@ namespace TileMatch.View
             if (!WasTapPerformed(out Vector2 screenPoint)) return;
 
             Vector2 worldPoint = _camera.ScreenToWorldPoint(screenPoint);
-            RaycastHit2D hit   = Physics2D.Raycast(worldPoint, Vector2.zero);
+            RaycastHit2D[] hits = Physics2D.RaycastAll(worldPoint, Vector2.zero);
 
-            if (hit.collider == null) return;
+            TileView topTile = null;
+            int maxSortingOrder = int.MinValue;
 
-            TileView tile = hit.collider.GetComponent<TileView>();
-            if (tile == null) return;
+            foreach (var hit in hits)
+            {
+                if (hit.collider == null) continue;
 
-            Debug.Log($"[InputView] Tap detected on TileID {tile.TileID}.");
-            _signalBus.Fire(new TileTapIntentSignal { TileID = tile.TileID });
+                TileView tile = hit.collider.GetComponent<TileView>();
+                if (tile != null && tile.SortingOrder > maxSortingOrder)
+                {
+                    maxSortingOrder = tile.SortingOrder;
+                    topTile = tile;
+                }
+            }
+
+            if (topTile == null) return;
+
+            Debug.Log($"[InputView] Tap detected on TileID {topTile.TileID} with sorting order {maxSortingOrder}.");
+            _signalBus.Fire(new TileTapIntentSignal { TileID = topTile.TileID });
         }
 
         // ─────────────────────────────────────────────────────────────────────

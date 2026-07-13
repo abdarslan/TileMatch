@@ -32,6 +32,8 @@ namespace TileMatch.Editor
         // ── State: design-time tile grid ────────────────────────────────────
         // _cells[layer][col, row] = typeID (0 = empty)
         private int[][,] _cells;
+        private bool[] _layerOffsetX;
+        private bool[] _layerOffsetY;
 
         // ── State: layer navigation & tools ─────────────────────────────────
         private int  _activeLayer   = 0;
@@ -123,6 +125,9 @@ namespace TileMatch.Editor
         private void InitCells()
         {
             _cells = new int[_layerCount][,];
+            _layerOffsetX = new bool[_layerCount];
+            _layerOffsetY = new bool[_layerCount];
+
             for (int l = 0; l < _layerCount; l++)
                 _cells[l] = new int[_gridCols, _gridRows];
 
@@ -208,15 +213,15 @@ namespace TileMatch.Editor
             _orderList.elementHeightCallback = (int index) => {
                 if (index >= _level.pendingOrders.Count) return 40f;
                 var order = _level.pendingOrders[index];
-                return 46f + (order.requiredTypeIDs.Count * 30f);
+                return 56f + (order.requiredTypeIDs.Count * 32f);
             };
 
             _orderList.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) => {
                 if (index >= _level.pendingOrders.Count) return;
                 var order = _level.pendingOrders[index];
                 
-                rect.y += 6; 
-                rect.height -= 12;
+                rect.y += 8; 
+                rect.height -= 16;
 
                 Color originalBg = GUI.backgroundColor;
                 GUI.backgroundColor = order.requiredTypeIDs.Count < 3 ? new Color(1f, 0.6f, 0.6f) : new Color(0.6f, 1f, 0.6f);
@@ -260,15 +265,11 @@ namespace TileMatch.Editor
             };
 
             _orderList.onAddCallback = (ReorderableList l) => {
-                Undo.RecordObject(_level, "Add Order");
-                _level.pendingOrders.Add(new OrderData { requiredTypeIDs = new List<int>() });
-                EditorUtility.SetDirty(_level);
+                // Disabled: orders are auto-synced
             };
 
             _orderList.onRemoveCallback = (ReorderableList l) => {
-                Undo.RecordObject(_level, "Remove Order");
-                ReorderableList.defaultBehaviours.DoRemoveButton(l);
-                EditorUtility.SetDirty(_level);
+                // Disabled: orders are auto-synced
             };
         }
 
@@ -301,6 +302,20 @@ namespace TileMatch.Editor
                     _activeLayer++;
             }
 
+            if (_layerOffsetX != null && _activeLayer < _layerOffsetX.Length)
+            {
+                EditorGUI.BeginChangeCheck();
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    _layerOffsetX[_activeLayer] = GUILayout.Toggle(_layerOffsetX[_activeLayer], "Offset X (0.5)");
+                    _layerOffsetY[_activeLayer] = GUILayout.Toggle(_layerOffsetY[_activeLayer], "Offset Y (0.5)");
+                }
+                if (EditorGUI.EndChangeCheck())
+                {
+                    Repaint();
+                }
+            }
+
             using (new EditorGUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("Copy Layer"))
@@ -315,6 +330,7 @@ namespace TileMatch.Editor
             {
                 Undo.RecordObject(this, "Clear Layer");
                 _cells[_activeLayer] = new int[_gridCols, _gridRows];
+                SyncOrdersWithGrid();
             }
         }
 
@@ -425,7 +441,12 @@ namespace TileMatch.Editor
                     GUI.backgroundColor = prev;
                 }
                 GUILayout.FlexibleSpace();
-                GUILayout.Label($"Grid: {_gridCols}×{_gridRows}  |  Active: Z{_activeLayer}", EditorStyles.miniLabel);
+
+                string badge = "";
+                if (_activeLayer == 0) badge = " [BOTTOM LAYER] ";
+                else if (_activeLayer == _layerCount - 1) badge = " [TOP LAYER] ";
+
+                GUILayout.Label($"{badge} Grid: {_gridCols}×{_gridRows}  |  Active: Z{_activeLayer}", EditorStyles.miniLabel);
                 GUILayout.Space(8);
             }
         }
@@ -472,7 +493,7 @@ namespace TileMatch.Editor
                         int typeID = _cells[l][c, r];
                         if (typeID == 0) continue;
 
-                        Rect cellRect = GetCellRect(canvas, c, r);
+                        Rect cellRect = GetCellRect(canvas, c, r, l);
                         Color tileColor = GetTypeColor(typeID);
                         tileColor.a = alpha;
                         EditorGUI.DrawRect(cellRect, tileColor);
@@ -490,7 +511,7 @@ namespace TileMatch.Editor
                     int typeID = _cells[_activeLayer][c, r];
                     if (typeID == 0) continue;
 
-                    Rect cellRect = GetCellRect(canvas, c, r);
+                    Rect cellRect = GetCellRect(canvas, c, r, _activeLayer);
 
                     bool isClickable = true;
                     if (_showBlocking)
@@ -573,10 +594,7 @@ namespace TileMatch.Editor
             Undo.RecordObject(this, _eraseMode ? "Erase Tile" : "Paint Tile");
             _cells[_activeLayer][col, row] = newValue;
 
-            if (!_eraseMode && newValue != 0)
-            {
-                AutoAddOrderIfNeeded(newValue);
-            }
+            SyncOrdersWithGrid();
 
             _showBlocking   = false;
             _lastValidation = null;
@@ -585,33 +603,108 @@ namespace TileMatch.Editor
             Repaint();
         }
 
-        private void AutoAddOrderIfNeeded(int typeID)
+        private void SyncOrdersWithGrid()
         {
-            if (_level == null) return;
+            if (_level == null || _level.pendingOrders == null) return;
 
-            OrderData targetOrder = null;
-            for (int i = 0; i < _level.pendingOrders.Count; i++)
+            Dictionary<int, int> gridCounts = new Dictionary<int, int>();
+            for (int l = 0; l < _layerCount; l++)
             {
-                var order = _level.pendingOrders[i];
-                if (order.requiredTypeIDs.Count < 3)
+                for (int c = 0; c < _gridCols; c++)
                 {
-                    if (order.requiredTypeIDs.Count == 0 || order.requiredTypeIDs[0] == typeID)
+                    for (int r = 0; r < _gridRows; r++)
                     {
-                        targetOrder = order;
-                        break;
+                        int typeID = _cells[l][c, r];
+                        if (typeID != 0)
+                        {
+                            if (!gridCounts.ContainsKey(typeID)) gridCounts[typeID] = 0;
+                            gridCounts[typeID]++;
+                        }
                     }
                 }
             }
 
-            Undo.RecordObject(_level, "Auto Add Order Item");
-            if (targetOrder == null)
+            Dictionary<int, int> orderCounts = new Dictionary<int, int>();
+            foreach (var order in _level.pendingOrders)
             {
-                targetOrder = new OrderData { requiredTypeIDs = new List<int>() };
-                _level.pendingOrders.Add(targetOrder);
+                foreach (var typeID in order.requiredTypeIDs)
+                {
+                    if (!orderCounts.ContainsKey(typeID)) orderCounts[typeID] = 0;
+                    orderCounts[typeID]++;
+                }
             }
 
-            targetOrder.requiredTypeIDs.Add(typeID);
-            EditorUtility.SetDirty(_level);
+            Undo.RecordObject(_level, "Sync Orders");
+            bool changed = false;
+
+            foreach (var kvp in gridCounts)
+            {
+                int typeID = kvp.Key;
+                int target = kvp.Value;
+                int current = orderCounts.ContainsKey(typeID) ? orderCounts[typeID] : 0;
+
+                while (current < target)
+                {
+                    OrderData targetOrder = null;
+                    foreach (var order in _level.pendingOrders)
+                    {
+                        if (order.requiredTypeIDs.Count > 0 && order.requiredTypeIDs.Count < 3 && order.requiredTypeIDs[0] == typeID)
+                        {
+                            targetOrder = order;
+                            break;
+                        }
+                    }
+                    if (targetOrder == null)
+                    {
+                        targetOrder = new OrderData { requiredTypeIDs = new List<int>() };
+                        _level.pendingOrders.Add(targetOrder);
+                    }
+                    targetOrder.requiredTypeIDs.Add(typeID);
+                    current++;
+                    changed = true;
+                }
+            }
+
+            foreach (var kvp in orderCounts)
+            {
+                int typeID = kvp.Key;
+                int current = kvp.Value;
+                int target = gridCounts.ContainsKey(typeID) ? gridCounts[typeID] : 0;
+
+                while (current > target)
+                {
+                    OrderData targetOrder = null;
+                    for (int i = _level.pendingOrders.Count - 1; i >= 0; i--)
+                    {
+                        if (_level.pendingOrders[i].requiredTypeIDs.Contains(typeID))
+                        {
+                            targetOrder = _level.pendingOrders[i];
+                            break;
+                        }
+                    }
+
+                    if (targetOrder != null)
+                    {
+                        targetOrder.requiredTypeIDs.Remove(typeID);
+                        current--;
+                        changed = true;
+                    }
+                }
+            }
+
+            for (int i = _level.pendingOrders.Count - 1; i >= 0; i--)
+            {
+                if (_level.pendingOrders[i].requiredTypeIDs.Count == 0)
+                {
+                    _level.pendingOrders.RemoveAt(i);
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                EditorUtility.SetDirty(_level);
+            }
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -763,11 +856,17 @@ namespace TileMatch.Editor
                         int typeID = _cells[l][c, r];
                         if (typeID == 0) continue;
 
+                        float cellX = c * baseSize - offsetX;
+                        float cellY = offsetY - r * baseSize;
+
+                        if (_layerOffsetX != null && l < _layerOffsetX.Length && _layerOffsetX[l]) cellX += baseSize * 0.5f;
+                        if (_layerOffsetY != null && l < _layerOffsetY.Length && _layerOffsetY[l]) cellY -= baseSize * 0.5f;
+
                         list.Add(new TileData
                         {
                             tileID          = nextID++,
                             typeID          = typeID,
-                            visualPosition  = new Vector3(c * baseSize - offsetX, offsetY - r * baseSize, l),
+                            visualPosition  = new Vector3(cellX, cellY, l),
                             blockingTileIDs = new List<int>()
                         });
                     }
@@ -809,8 +908,18 @@ namespace TileMatch.Editor
                     float ux = upper.visualPosition.x;
                     float uy = upper.visualPosition.y;
 
-                    bool overlapsX = lx + halfX - ux > epsilon && ux + halfX - lx > epsilon;
-                    bool overlapsY = ly + halfY - uy > epsilon && uy + halfY - ly > epsilon;
+                    float aMaxX = lx + halfX;
+                    float aMinX = lx - halfX;
+                    float bMaxX = ux + halfX;
+                    float bMinX = ux - halfX;
+
+                    float aMaxY = ly + halfY;
+                    float aMinY = ly - halfY;
+                    float bMaxY = uy + halfY;
+                    float bMinY = uy - halfY;
+
+                    bool overlapsX = aMaxX - bMinX > epsilon && bMaxX - aMinX > epsilon;
+                    bool overlapsY = aMaxY - bMinY > epsilon && bMaxY - aMinY > epsilon;
 
                     if (overlapsX && overlapsY)
                         lower.blockingTileIDs.Add(upper.tileID);
@@ -821,11 +930,16 @@ namespace TileMatch.Editor
         // ══════════════════════════════════════════════════════════════════════
         // HELPERS
         // ══════════════════════════════════════════════════════════════════════
-        private Rect GetCellRect(Rect canvas, int col, int row)
+        private Rect GetCellRect(Rect canvas, int col, int row, int layer)
         {
+            float offsetX = 0f;
+            float offsetY = 0f;
+            if (_layerOffsetX != null && layer < _layerOffsetX.Length && _layerOffsetX[layer]) offsetX = CellSize * 0.5f;
+            if (_layerOffsetY != null && layer < _layerOffsetY.Length && _layerOffsetY[layer]) offsetY = CellSize * 0.5f;
+
             return new Rect(
-                canvas.x + GridPadding + col * CellSize,
-                canvas.y + GridPadding + row * CellSize,
+                canvas.x + GridPadding + col * CellSize + offsetX,
+                canvas.y + GridPadding + row * CellSize + offsetY,
                 CellSize, CellSize);
         }
 
@@ -857,14 +971,22 @@ namespace TileMatch.Editor
         private void ResizeCells()
         {
             var old       = _cells;
+            var oldOffX   = _layerOffsetX;
+            var oldOffY   = _layerOffsetY;
             int oldLayers = old?.Length ?? 0;
 
             _cells = new int[_layerCount][,];
+            _layerOffsetX = new bool[_layerCount];
+            _layerOffsetY = new bool[_layerCount];
+
             for (int l = 0; l < _layerCount; l++)
             {
                 _cells[l] = new int[_gridCols, _gridRows];
                 if (l < oldLayers && old[l] != null)
                 {
+                    if (oldOffX != null && l < oldOffX.Length) _layerOffsetX[l] = oldOffX[l];
+                    if (oldOffY != null && l < oldOffY.Length) _layerOffsetY[l] = oldOffY[l];
+
                     int oldCols = old[l].GetLength(0);
                     int oldRows = old[l].GetLength(1);
                     for (int c = 0; c < Mathf.Min(_gridCols, oldCols); c++)
@@ -901,6 +1023,20 @@ namespace TileMatch.Editor
         private void ProcessKeyboardShortcuts()
         {
             Event e = Event.current;
+            if (e.type == EventType.ScrollWheel)
+            {
+                if (e.delta.y < 0 && _activeLayer > 0)
+                {
+                    _activeLayer--;
+                    e.Use();
+                }
+                else if (e.delta.y > 0 && _activeLayer < _layerCount - 1)
+                {
+                    _activeLayer++;
+                    e.Use();
+                }
+            }
+
             if (e.type != EventType.KeyDown) return;
 
             switch (e.keyCode)
