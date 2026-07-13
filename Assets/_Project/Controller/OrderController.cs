@@ -70,6 +70,8 @@ namespace TileMatch.Controller
             _state.ActiveOrders[orderIndex] = null;
             Debug.Log($"[OrderController] Order {orderIndex} completed. Pending: {_state.PendingOrders.Count}.");
 
+            _signalBus.Fire(new OrderCompletedSignal { TrayIndex = orderIndex });
+
             PromoteNextOrder(orderIndex);
 
             bool hasActive = false;

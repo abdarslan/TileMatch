@@ -14,59 +14,115 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TileMatch.Model.LevelData
   activeTiles:
   - tileID: 1
-    typeID: 1
-    visualPosition: {x: -3.5, y: 3.5, z: 0}
+    typeID: 6
+    visualPosition: {x: -2.5, y: -0.5, z: 0}
     blockingTileIDs: 
   - tileID: 2
-    typeID: 3
-    visualPosition: {x: -3.5, y: -3.5, z: 0}
-    blockingTileIDs: 
+    typeID: 10
+    visualPosition: {x: -1.5, y: 1.5, z: 0}
+    blockingTileIDs: 10000000
   - tileID: 3
-    typeID: 1
-    visualPosition: {x: -2.5, y: 3.5, z: 0}
-    blockingTileIDs: 
+    typeID: 10
+    visualPosition: {x: -1.5, y: 0.5, z: 0}
+    blockingTileIDs: 1000000011000000
   - tileID: 4
     typeID: 6
-    visualPosition: {x: -2.5, y: -2.5, z: 0}
-    blockingTileIDs: 
+    visualPosition: {x: -1.5, y: -0.5, z: 0}
+    blockingTileIDs: 1100000012000000
   - tileID: 5
-    typeID: 6
-    visualPosition: {x: -0.5, y: -0.5, z: 0}
-    blockingTileIDs: 
+    typeID: 10
+    visualPosition: {x: -0.5, y: 0.5, z: 0}
+    blockingTileIDs: 100000001100000013000000
   - tileID: 6
     typeID: 6
-    visualPosition: {x: 0.5, y: 0.5, z: 0}
-    blockingTileIDs: 
+    visualPosition: {x: -0.5, y: -0.5, z: 0}
+    blockingTileIDs: 110000001200000013000000
   - tileID: 7
-    typeID: 3
-    visualPosition: {x: 0.5, y: -3.5, z: 0}
+    typeID: 9
+    visualPosition: {x: 0.5, y: 2.5, z: 0}
     blockingTileIDs: 
   - tileID: 8
-    typeID: 6
-    visualPosition: {x: 2.5, y: 2.5, z: 0}
+    typeID: 9
+    visualPosition: {x: 0.5, y: 1.5, z: 0}
     blockingTileIDs: 
   - tileID: 9
-    typeID: 6
-    visualPosition: {x: 2.5, y: -0.5, z: 0}
-    blockingTileIDs: 
+    typeID: 9
+    visualPosition: {x: 0.5, y: 0.5, z: 0}
+    blockingTileIDs: 1300000014000000
   - tileID: 10
-    typeID: 6
-    visualPosition: {x: 2.5, y: -2.5, z: 0}
-    blockingTileIDs: 
+    typeID: 8
+    visualPosition: {x: 0.5, y: -0.5, z: 0}
+    blockingTileIDs: 1300000014000000
   - tileID: 11
-    typeID: 1
-    visualPosition: {x: 3.5, y: 3.5, z: 0}
+    typeID: 11
+    visualPosition: {x: 0.5, y: -2.5, z: 0}
     blockingTileIDs: 
   - tileID: 12
+    typeID: 8
+    visualPosition: {x: 1.5, y: -0.5, z: 0}
+    blockingTileIDs: 140000001600000017000000
+  - tileID: 13
+    typeID: 11
+    visualPosition: {x: 1.5, y: -2.5, z: 0}
+    blockingTileIDs: 18000000
+  - tileID: 14
+    typeID: 8
+    visualPosition: {x: 2.5, y: -0.5, z: 0}
+    blockingTileIDs: 1600000017000000
+  - tileID: 15
+    typeID: 11
+    visualPosition: {x: 2.5, y: -2.5, z: 0}
+    blockingTileIDs: 18000000
+  - tileID: 16
+    typeID: 1
+    visualPosition: {x: -1, y: 1, z: 1}
+    blockingTileIDs: 
+  - tileID: 17
+    typeID: 1
+    visualPosition: {x: -1, y: 0, z: 1}
+    blockingTileIDs: 
+  - tileID: 18
+    typeID: 1
+    visualPosition: {x: -1, y: -1, z: 1}
+    blockingTileIDs: 
+  - tileID: 19
     typeID: 3
-    visualPosition: {x: 3.5, y: -3.5, z: 0}
+    visualPosition: {x: 0, y: 0, z: 1}
+    blockingTileIDs: 
+  - tileID: 20
+    typeID: 3
+    visualPosition: {x: 1, y: 0, z: 1}
+    blockingTileIDs: 
+  - tileID: 21
+    typeID: 5
+    visualPosition: {x: 2, y: 1, z: 1}
+    blockingTileIDs: 
+  - tileID: 22
+    typeID: 5
+    visualPosition: {x: 2, y: 0, z: 1}
+    blockingTileIDs: 
+  - tileID: 23
+    typeID: 3
+    visualPosition: {x: 2, y: -1, z: 1}
+    blockingTileIDs: 
+  - tileID: 24
+    typeID: 5
+    visualPosition: {x: 2, y: -2, z: 1}
     blockingTileIDs: 
   pendingOrders:
   - requiredTypeIDs: 010000000100000001000000
     currentItemIndex: 0
   - requiredTypeIDs: 030000000300000003000000
     currentItemIndex: 0
-  - requiredTypeIDs: 060000000600000006000000
+  - requiredTypeIDs: 050000000500000005000000
     currentItemIndex: 0
   - requiredTypeIDs: 060000000600000006000000
+    currentItemIndex: 0
+  - requiredTypeIDs: 080000000800000008000000
+    currentItemIndex: 0
+  - requiredTypeIDs: 090000000900000009000000
+    currentItemIndex: 0
+  - requiredTypeIDs: 0a0000000a0000000a000000
+    currentItemIndex: 0
+  - requiredTypeIDs: 0b0000000b0000000b000000
     currentItemIndex: 0

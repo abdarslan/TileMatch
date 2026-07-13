@@ -66,6 +66,7 @@ namespace TileMatch.View
 
             _signalBus.Subscribe<LevelStartedSignal>(OnLevelStarted);
             _signalBus.Subscribe<OrderPromotedSignal>(OnOrderPromoted);
+            _signalBus.Subscribe<OrderCompletedSignal>(OnOrderCompleted);
             _signalBus.Subscribe<TileRoutedToTraySignal>(OnTileRoutedToTray);
             _signalBus.Subscribe<TileRoutedToRackSignal>(OnTileRoutedToRack);
             _signalBus.Subscribe<TileRoutedFromRackToTraySignal>(OnTileRoutedFromRackToTray);
@@ -82,6 +83,7 @@ namespace TileMatch.View
             if (_signalBus == null) return;
             _signalBus.Unsubscribe<LevelStartedSignal>(OnLevelStarted);
             _signalBus.Unsubscribe<OrderPromotedSignal>(OnOrderPromoted);
+            _signalBus.Unsubscribe<OrderCompletedSignal>(OnOrderCompleted);
             _signalBus.Unsubscribe<TileRoutedToTraySignal>(OnTileRoutedToTray);
             _signalBus.Unsubscribe<TileRoutedToRackSignal>(OnTileRoutedToRack);
             _signalBus.Unsubscribe<TileRoutedFromRackToTraySignal>(OnTileRoutedFromRackToTray);
@@ -149,6 +151,22 @@ namespace TileMatch.View
             Debug.Log($"[VisualView] Spawned {_activeTiles.Count} tile visuals.");
         }
 
+        private void OnOrderCompleted(OrderCompletedSignal signal)
+        {
+            if (_traySlots == null || signal.TrayIndex < 0 || signal.TrayIndex >= _traySlots.Length) return;
+            HandleOrderCompletedAsync(signal, _levelCts.Token).Forget();
+        }
+
+        private async UniTaskVoid HandleOrderCompletedAsync(OrderCompletedSignal signal, CancellationToken ct)
+        {
+            OrderTrayView tray = _traySlots[signal.TrayIndex];
+            bool isCanceled = await tray.WaitUntilFreeAsync(ct).SuppressCancellationThrow();
+            if (isCanceled || ct.IsCancellationRequested) return;
+
+            // Old order finished, play the celebration
+            await tray.PlayCompletionAnimationAsync(ct).SuppressCancellationThrow();
+        }
+
         private void OnOrderPromoted(OrderPromotedSignal signal)
         {
             if (_traySlots == null || signal.TrayIndex < 0 || signal.TrayIndex >= _traySlots.Length) return;
@@ -158,10 +176,21 @@ namespace TileMatch.View
         private async UniTaskVoid HandleOrderPromotedAsync(OrderPromotedSignal signal, CancellationToken ct)
         {
             OrderTrayView tray = _traySlots[signal.TrayIndex];
-            bool isCanceled = await tray.WaitUntilFreeAsync(ct).SuppressCancellationThrow();
-            if (isCanceled || ct.IsCancellationRequested) return;
+            
+            // Loop to prevent race conditions with HandleOrderCompletedAsync.
+            // If they wake up at the exact same time, yielding 1 frame allows the completion
+            // animation to start and increment _pendingAnimations, so we can wait for it properly.
+            while (true)
+            {
+                bool isCanceled = await tray.WaitUntilFreeAsync(ct).SuppressCancellationThrow();
+                if (isCanceled || ct.IsCancellationRequested) return;
+
+                await UniTask.Yield(PlayerLoopTiming.Update, ct);
+                if (tray.IsFree) break;
+            }
 
             tray.Initialize(signal.Order, _typeIcons);
+            await tray.SlideInAnimationAsync(ct, signal.TrayIndex).SuppressCancellationThrow();
         }
 
         private void OnTileRoutedToTray(TileRoutedToTraySignal signal)
@@ -194,23 +223,36 @@ namespace TileMatch.View
         private void OnTileRoutedFromRackToTray(TileRoutedFromRackToTraySignal signal)
         {
             int rackIndex = Mathf.Clamp(signal.SourceRackIndex, 0, _rackSlots.Length - 1);
-            int trayIndex = Mathf.Clamp(signal.TargetTrayIndex, 0, _traySlots.Length - 1);
             RackSlotView rackSlot = _rackSlots[rackIndex];
+            
+            // 1. Logic is instant: Clear the rack slot immediately so the player sees the tile leave the rack
+            Vector3 startPos = rackSlot.transform.position;
+            rackSlot.Clear();
+
+            // 2. Pass the job to a Fire-and-Forget async task
+            RouteFromRackWhenTrayIsReadyAsync(signal, startPos, _levelCts.Token).Forget();
+        }
+
+        private async UniTaskVoid RouteFromRackWhenTrayIsReadyAsync(TileRoutedFromRackToTraySignal signal, Vector3 startPos, CancellationToken ct)
+        {
+            int trayIndex = Mathf.Clamp(signal.TargetTrayIndex, 0, _traySlots.Length - 1);
             OrderTrayView tray = _traySlots[trayIndex];
 
-            // Spawn a temporary view at the rack slot's world position
+            // 3. THE MAGIC: We wait until the Tray is completely done with the PREVIOUS order!
+            bool isCanceled = await tray.WaitUntilFreeAsync(ct).SuppressCancellationThrow();
+            if (isCanceled || ct.IsCancellationRequested) return;
+
+            // 4. Now that the tray is visually empty and ready for the new order, we spawn the ghost tile and fly!
             TileView view = Rent();
             view.transform.SetParent(_boardRoot);
-            view.transform.position = rackSlot.transform.position;
+            view.transform.position = startPos;
             view.transform.localScale = _originalTileScale;
             view.gameObject.SetActive(true);
             view.Setup(-1, signal.TypeID, GetIcon(signal.TypeID));
             view.DisableBg();
             view.SetSortingOrder(30000);
 
-            rackSlot.Clear();
-
-            RouteTileToTrayAsync(view, tray, signal.TargetItemIndex, _levelCts.Token).Forget();
+            RouteTileToTrayAsync(view, tray, signal.TargetItemIndex, ct).Forget();
         }
 
         private void OnTileRoutedToRack(TileRoutedToRackSignal signal)
