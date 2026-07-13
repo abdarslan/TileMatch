@@ -4,7 +4,8 @@ namespace TileMatch.Signal
 {
     public struct TileRoutedToTraySignal
     {
-        public TileSaveData Tile;
+        public TileData Tile;
         public int TargetTrayIndex;
+        public int TargetItemIndex;
     }
 }

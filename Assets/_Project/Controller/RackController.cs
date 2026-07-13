@@ -33,7 +33,7 @@ namespace TileMatch.Controller
         // ─────────────────────────────────────────────────────────────────────
         private void OnTileUnmatched(TileUnmatchedSignal signal)
         {
-            TileSaveData tile = signal.Tile;
+            TileData tile = signal.Tile;
             int slot = FindFreeSlot();
 
             if (slot < 0)

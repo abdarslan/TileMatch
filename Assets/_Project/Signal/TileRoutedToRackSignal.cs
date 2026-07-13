@@ -4,7 +4,7 @@ namespace TileMatch.Signal
 {
     public struct TileRoutedToRackSignal
     {
-        public TileSaveData Tile;
+        public TileData Tile;
         public int TargetRackIndex;
     }
 }

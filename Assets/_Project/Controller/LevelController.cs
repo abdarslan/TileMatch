@@ -37,7 +37,7 @@ namespace TileMatch.Controller
         {
             if (!_active) return;
 
-            if (!_state.RuntimeTiles.TryGetValue(signal.TileID, out TileSaveData tile))
+            if (!_state.RuntimeTiles.TryGetValue(signal.TileID, out TileData tile))
             {
                 Debug.Log($"[LevelController] TileID {signal.TileID} not found on board — ignoring.");
                 return;
@@ -59,7 +59,7 @@ namespace TileMatch.Controller
 
         private void UnblockDependents(int removedTileID)
         {
-            foreach (TileSaveData tile in _state.RuntimeTiles.Values)
+            foreach (TileData tile in _state.RuntimeTiles.Values)
                 tile.blockingTileIDs.Remove(removedTileID);
         }
 

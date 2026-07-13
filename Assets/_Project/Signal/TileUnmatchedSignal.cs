@@ -4,6 +4,6 @@ namespace TileMatch.Signal
 {
     public struct TileUnmatchedSignal
     {
-        public TileSaveData Tile;
+        public TileData Tile;
     }
 }

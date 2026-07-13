@@ -35,7 +35,7 @@ namespace TileMatch.Controller
         // ─────────────────────────────────────────────────────────────────────
         private void OnTileValidated(TileValidatedSignal signal)
         {
-            TileSaveData tile = signal.Tile;
+            TileData tile = signal.Tile;
 
             for (int i = 0; i < _state.ActiveOrders.Count; i++)
             {
@@ -45,7 +45,11 @@ namespace TileMatch.Controller
                 if (order.requiredTypeIDs[order.currentItemIndex] != tile.typeID) continue;
 
                 order.currentItemIndex++;
-                _signalBus.Fire(new TileRoutedToTraySignal { Tile = tile, TargetTrayIndex = i });
+                _signalBus.Fire(new TileRoutedToTraySignal { 
+                    Tile = tile, 
+                    TargetTrayIndex = i,
+                    TargetItemIndex = order.currentItemIndex - 1
+                });
 
                 Debug.Log($"[OrderController] TileID {tile.tileID} (type {tile.typeID}) matched order[{i}] slot {order.currentItemIndex - 1}.");
 
@@ -79,8 +83,55 @@ namespace TileMatch.Controller
             while (_state.ActiveOrders.Count < RuntimeGameState.MaxActiveOrders
                    && _state.PendingOrders.Count > 0)
             {
-                _state.ActiveOrders.Add(_state.PendingOrders.Dequeue());
-                Debug.Log("[OrderController] Promoted next pending order to active.");
+                var order = _state.PendingOrders.Dequeue();
+                _state.ActiveOrders.Add(order);
+                int index = _state.ActiveOrders.Count - 1;
+                Debug.Log($"[OrderController] Promoted next pending order to active at tray {index}.");
+                _signalBus.Fire(new OrderPromotedSignal { Order = order, TrayIndex = index });
+
+                TryFulfillFromRack(index);
+            }
+        }
+
+        private void TryFulfillFromRack(int orderIndex)
+        {
+            // The order might have been completed and removed while checking the rack, 
+            // so we must ensure it's still active.
+            if (orderIndex >= _state.ActiveOrders.Count) return;
+            OrderData order = _state.ActiveOrders[orderIndex];
+
+            bool foundMatch = true;
+            while (foundMatch && order.currentItemIndex < order.requiredTypeIDs.Count)
+            {
+                foundMatch = false;
+                int neededType = order.requiredTypeIDs[order.currentItemIndex];
+
+                for (int r = 0; r < _state.Rack.Length; r++)
+                {
+                    if (_state.Rack[r] == neededType)
+                    {
+                        _state.Rack[r] = 0; // Claim it
+                        order.currentItemIndex++;
+
+                        _signalBus.Fire(new TileRoutedFromRackToTraySignal 
+                        { 
+                            SourceRackIndex = r,
+                            TargetTrayIndex = orderIndex,
+                            TargetItemIndex = order.currentItemIndex - 1,
+                            TypeID = neededType
+                        });
+
+                        foundMatch = true;
+                        Debug.Log($"[OrderController] Rack slot {r} matched newly promoted order[{orderIndex}] slot {order.currentItemIndex - 1}.");
+
+                        if (order.currentItemIndex >= order.requiredTypeIDs.Count)
+                        {
+                            CompleteOrder(orderIndex);
+                            return; // This order is done
+                        }
+                        break;
+                    }
+                }
             }
         }
     }

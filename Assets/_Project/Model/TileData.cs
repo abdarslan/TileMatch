@@ -4,7 +4,7 @@ using UnityEngine;
 namespace TileMatch.Model
 {
     [System.Serializable]
-    public class TileSaveData
+    public class TileData
     {
         public int tileID;
         public int typeID;
