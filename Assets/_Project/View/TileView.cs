@@ -21,5 +21,12 @@ namespace TileMatch.View
             TypeID = typeID;
             _iconRenderer.sprite = icon;
         }
+
+        public void SetSortingOrder(int order)
+        {
+            var baseRenderer = GetComponent<SpriteRenderer>();
+            if (baseRenderer != null) baseRenderer.sortingOrder = order;
+            if (_iconRenderer != null) _iconRenderer.sortingOrder = order + 1;
+        }
     }
 }

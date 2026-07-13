@@ -47,6 +47,12 @@ namespace TileMatch.Controller
             CurrentState = GameState.Playing;
             _signalBus.Fire(new LevelStartedSignal { Level = level });
 
+            // Fire OrderPromotedSignal for initial active orders
+            for (int i = 0; i < _state.ActiveOrders.Count; i++)
+            {
+                _signalBus.Fire(new OrderPromotedSignal { Order = _state.ActiveOrders[i], TrayIndex = i });
+            }
+
             Debug.Log($"[GameplayController] Level started. " +
                       $"Tiles: {_state.RuntimeTiles.Count}, " +
                       $"Active orders: {_state.ActiveOrders.Count}, " +
@@ -65,9 +71,9 @@ namespace TileMatch.Controller
                 _state.Rack[i] = 0;
 
             // Deep-copy tiles so runtime mutations never dirty the ScriptableObject
-            foreach (TileSaveData source in level.activeTiles)
+            foreach (TileData source in level.activeTiles)
             {
-                _state.RuntimeTiles[source.tileID] = new TileSaveData
+                _state.RuntimeTiles[source.tileID] = new TileData
                 {
                     tileID          = source.tileID,
                     typeID          = source.typeID,
