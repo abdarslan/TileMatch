@@ -149,7 +149,16 @@ namespace TileMatch.View
         private void OnOrderPromoted(OrderPromotedSignal signal)
         {
             if (_traySlots == null || signal.TrayIndex < 0 || signal.TrayIndex >= _traySlots.Length) return;
-            _traySlots[signal.TrayIndex].Initialize(signal.Order, _typeIcons);
+            HandleOrderPromotedAsync(signal, _levelCts.Token).Forget();
+        }
+
+        private async UniTaskVoid HandleOrderPromotedAsync(OrderPromotedSignal signal, CancellationToken ct)
+        {
+            OrderTrayView tray = _traySlots[signal.TrayIndex];
+            bool isCanceled = await tray.WaitUntilFreeAsync(ct).SuppressCancellationThrow();
+            if (isCanceled || ct.IsCancellationRequested) return;
+
+            tray.Initialize(signal.Order, _typeIcons);
         }
 
         private void OnTileRoutedToTray(TileRoutedToTraySignal signal)
@@ -169,12 +178,14 @@ namespace TileMatch.View
 
         private async UniTaskVoid RouteTileToTrayAsync(TileView view, OrderTrayView tray, int itemIndex, CancellationToken ct)
         {
+            tray.OnAnimationStarted();
             Vector3 destination = tray.GetSlotWorldPosition(itemIndex);
             await AnimateTileToDestinationAsync(view, destination, returnToPool: true, ct);
             if (!ct.IsCancellationRequested)
             {
                 tray.AddTile(itemIndex);
             }
+            tray.OnAnimationFinished();
         }
 
         private void OnTileRoutedFromRackToTray(TileRoutedFromRackToTraySignal signal)
@@ -247,7 +258,7 @@ namespace TileMatch.View
             );
 
             view.transform.SetParent(_boardRoot);
-            view.transform.position   = scaledPos;
+            view.transform.localPosition = scaledPos;
             view.transform.localScale = _originalTileScale;
             view.gameObject.SetActive(true);
             view.Setup(data.tileID, data.typeID, icon);

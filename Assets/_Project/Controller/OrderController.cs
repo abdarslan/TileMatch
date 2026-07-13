@@ -37,9 +37,10 @@ namespace TileMatch.Controller
         {
             TileData tile = signal.Tile;
 
-            for (int i = 0; i < _state.ActiveOrders.Count; i++)
+            for (int i = 0; i < RuntimeGameState.MaxActiveOrders; i++)
             {
                 OrderData order = _state.ActiveOrders[i];
+                if (order == null) continue;
 
                 if (order.currentItemIndex >= order.requiredTypeIDs.Count) continue;
                 if (order.requiredTypeIDs[order.currentItemIndex] != tile.typeID) continue;
@@ -66,30 +67,34 @@ namespace TileMatch.Controller
         // ─────────────────────────────────────────────────────────────────────
         private void CompleteOrder(int orderIndex)
         {
-            _state.ActiveOrders.RemoveAt(orderIndex);
-            Debug.Log($"[OrderController] Order {orderIndex} completed. Active: {_state.ActiveOrders.Count}, Pending: {_state.PendingOrders.Count}.");
+            _state.ActiveOrders[orderIndex] = null;
+            Debug.Log($"[OrderController] Order {orderIndex} completed. Pending: {_state.PendingOrders.Count}.");
 
-            PromoteNextOrder();
+            PromoteNextOrder(orderIndex);
 
-            if (_state.ActiveOrders.Count == 0 && _state.PendingOrders.Count == 0)
+            bool hasActive = false;
+            for(int i = 0; i < RuntimeGameState.MaxActiveOrders; i++)
+            {
+                if (_state.ActiveOrders[i] != null) hasActive = true;
+            }
+
+            if (!hasActive && _state.PendingOrders.Count == 0)
             {
                 Debug.Log("[OrderController] All orders fulfilled — firing LevelCompletedSignal.");
                 _signalBus.Fire(new LevelCompletedSignal());
             }
         }
 
-        private void PromoteNextOrder()
+        private void PromoteNextOrder(int trayIndex)
         {
-            while (_state.ActiveOrders.Count < RuntimeGameState.MaxActiveOrders
-                   && _state.PendingOrders.Count > 0)
+            if (_state.PendingOrders.Count > 0)
             {
                 var order = _state.PendingOrders.Dequeue();
-                _state.ActiveOrders.Add(order);
-                int index = _state.ActiveOrders.Count - 1;
-                Debug.Log($"[OrderController] Promoted next pending order to active at tray {index}.");
-                _signalBus.Fire(new OrderPromotedSignal { Order = order, TrayIndex = index });
+                _state.ActiveOrders[trayIndex] = order;
+                Debug.Log($"[OrderController] Promoted next pending order to active at tray {trayIndex}.");
+                _signalBus.Fire(new OrderPromotedSignal { Order = order, TrayIndex = trayIndex });
 
-                TryFulfillFromRack(index);
+                TryFulfillFromRack(trayIndex);
             }
         }
 
@@ -97,8 +102,8 @@ namespace TileMatch.Controller
         {
             // The order might have been completed and removed while checking the rack, 
             // so we must ensure it's still active.
-            if (orderIndex >= _state.ActiveOrders.Count) return;
             OrderData order = _state.ActiveOrders[orderIndex];
+            if (order == null) return;
 
             bool foundMatch = true;
             while (foundMatch && order.currentItemIndex < order.requiredTypeIDs.Count)

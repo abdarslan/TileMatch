@@ -1,3 +1,5 @@
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
@@ -8,7 +10,28 @@ namespace TileMatch.View
     {
         [SerializeField] private Image[] _itemImages;
 
+        private int _pendingAnimations = 0;
 
+        public void OnAnimationStarted() => _pendingAnimations++;
+        public void OnAnimationFinished() => _pendingAnimations--;
+
+        public async UniTask WaitUntilFreeAsync(CancellationToken ct)
+        {
+            bool wasWaiting = false;
+            while (_pendingAnimations > 0)
+            {
+                wasWaiting = true;
+                bool isCanceled = await UniTask.Yield(PlayerLoopTiming.Update, ct).SuppressCancellationThrow();
+                if (isCanceled) return;
+            }
+
+            if (wasWaiting)
+            {
+                // Wait just a tiny bit so the user can see the fully completed order
+                // before it gets replaced by the new one.
+                await UniTask.Delay(300, cancellationToken: ct).SuppressCancellationThrow();
+            }
+        }
         public void Initialize(Model.OrderData order, Sprite[] typeIcons)
         {
             Clear();

@@ -48,14 +48,16 @@ namespace TileMatch.Controller
             _signalBus.Fire(new LevelStartedSignal { Level = level });
 
             // Fire OrderPromotedSignal for initial active orders
-            for (int i = 0; i < _state.ActiveOrders.Count; i++)
+            for (int i = 0; i < RuntimeGameState.MaxActiveOrders; i++)
             {
-                _signalBus.Fire(new OrderPromotedSignal { Order = _state.ActiveOrders[i], TrayIndex = i });
+                if (_state.ActiveOrders[i] != null)
+                {
+                    _signalBus.Fire(new OrderPromotedSignal { Order = _state.ActiveOrders[i], TrayIndex = i });
+                }
             }
 
             Debug.Log($"[GameplayController] Level started. " +
                       $"Tiles: {_state.RuntimeTiles.Count}, " +
-                      $"Active orders: {_state.ActiveOrders.Count}, " +
                       $"Pending orders: {_state.PendingOrders.Count}.");
         }
 
@@ -64,7 +66,8 @@ namespace TileMatch.Controller
         {
             // Clear all mutable runtime collections
             _state.RuntimeTiles.Clear();
-            _state.ActiveOrders.Clear();
+            for (int i = 0; i < RuntimeGameState.MaxActiveOrders; i++)
+                _state.ActiveOrders[i] = null;
             _state.PendingOrders.Clear();
 
             for (int i = 0; i < _state.Rack.Length; i++)
@@ -92,11 +95,13 @@ namespace TileMatch.Controller
                 });
             }
 
-            // Promote the first wave of active orders
-            while (_state.ActiveOrders.Count < RuntimeGameState.MaxActiveOrders
-                   && _state.PendingOrders.Count > 0)
+            // Pre-fill active orders
+            for (int i = 0; i < RuntimeGameState.MaxActiveOrders; i++)
             {
-                _state.ActiveOrders.Add(_state.PendingOrders.Dequeue());
+                if (_state.PendingOrders.Count > 0)
+                {
+                    _state.ActiveOrders[i] = _state.PendingOrders.Dequeue();
+                }
             }
         }
 
