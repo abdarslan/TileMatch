@@ -13,10 +13,12 @@ namespace TileMatch.View.UI
         [SerializeField] private Button _menuButton;
         
         private SignalBus _signalBus;
+        private HapticService _hapticService;
 
-        public void Initialize(SignalBus signalBus)
+        public void Initialize(SignalBus signalBus, HapticService hapticService)
         {
             _signalBus = signalBus;
+            _hapticService = hapticService;
             
             if (_restartButton != null)
             {
@@ -62,11 +64,13 @@ namespace TileMatch.View.UI
 
         private void OnRestartClicked()
         {
+            _hapticService?.OnUIButtonTapped();
             _signalBus.Fire(new RestartLevelRequestSignal());
         }
 
         private void OnMenuClicked()
         {
+            _hapticService?.OnUIButtonTapped();
             _signalBus.Fire(new ReturnToMenuRequestSignal());
         }
     }

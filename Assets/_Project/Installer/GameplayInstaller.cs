@@ -52,9 +52,9 @@ namespace TileMatch.Installer
             _inputView.Initialize(_signalBus);
             _visualView.Initialize(_signalBus, _hapticService);
 
-            if (_mainMenuView != null)     _mainMenuView.Initialize(_signalBus);
-            if (_gameplayHUDView != null)  _gameplayHUDView.Initialize(_signalBus);
-            if (_resultScreenView != null) _resultScreenView.Initialize(_signalBus);
+            if (_mainMenuView != null)     _mainMenuView.Initialize(_signalBus, _hapticService);
+            if (_gameplayHUDView != null)  _gameplayHUDView.Initialize(_signalBus, _hapticService);
+            if (_resultScreenView != null) _resultScreenView.Initialize(_signalBus, _hapticService);
 
             // 4. Init the level sequence (Starts in Menu state)
             LevelData[] allLevels = Resources.LoadAll<LevelData>("Levels");

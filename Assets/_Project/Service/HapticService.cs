@@ -48,7 +48,7 @@ namespace TileMatch.Service
             if (!_enabled) return;
             Vibration.VibrateIOS(ImpactFeedbackStyle.Light);
 #if UNITY_ANDROID
-            Vibration.VibrateAndroid(28, 12);
+            TriggerAndroidPredefinedEffect(2, 10);
 #endif
         }
 
@@ -61,7 +61,8 @@ namespace TileMatch.Service
             if (!_enabled) return;
             Vibration.VibrateIOS(ImpactFeedbackStyle.Medium);
 #if UNITY_ANDROID
-            Vibration.VibrateAndroid(55);
+            // 2 = EFFECT_TICK
+            TriggerAndroidPredefinedEffect(2, 10);
 #endif
         }
 
@@ -74,7 +75,8 @@ namespace TileMatch.Service
             if (!_enabled) return;
             Vibration.VibrateIOS(ImpactFeedbackStyle.Soft);
 #if UNITY_ANDROID
-            Vibration.VibrateAndroid(35);
+            // 2 = EFFECT_TICK (very light, crisp tick)
+            TriggerAndroidPredefinedEffect(2, 10);
 #endif
         }
 
@@ -87,9 +89,20 @@ namespace TileMatch.Service
             if (!_enabled) return;
             Vibration.VibrateIOS(ImpactFeedbackStyle.Rigid);
 #if UNITY_ANDROID
-            Vibration.VibrateAndroid(70);
+            PlayOrderCompletedSequenceAsync().Forget();
 #endif
         }
+
+#if UNITY_ANDROID
+        private async Cysharp.Threading.Tasks.UniTaskVoid PlayOrderCompletedSequenceAsync()
+        {
+            // 5 = EFFECT_HEAVY_CLICK
+            TriggerAndroidPredefinedEffect(5, 30);
+            await Cysharp.Threading.Tasks.UniTask.Delay(80);
+            // 2 = EFFECT_TICK
+            TriggerAndroidPredefinedEffect(2, 10);
+        }
+#endif
 
         /// <summary>
         /// Level won. Celebratory notification-style haptic — iOS success buzz.
@@ -99,9 +112,21 @@ namespace TileMatch.Service
             if (!_enabled) return;
             Vibration.VibrateIOS(NotificationFeedbackStyle.Success);
 #if UNITY_ANDROID
-            Vibration.VibrateAndroid(80);
+            PlayWinTickSequenceAsync().Forget();
 #endif
         }
+
+#if UNITY_ANDROID
+        private async Cysharp.Threading.Tasks.UniTaskVoid PlayWinTickSequenceAsync()
+        {
+            // Sequence of 10 ticks with 40ms delay between them
+            for (int i = 0; i < 10; i++)
+            {
+                TriggerAndroidPredefinedEffect(2, 10); // tick
+                await Cysharp.Threading.Tasks.UniTask.Delay(40);
+            }
+        }
+#endif
 
         /// <summary>
         /// Rack is full — game over. Heavy, unmissable impact.
@@ -128,5 +153,43 @@ namespace TileMatch.Service
             Vibration.VibrateAndroid(40);
 #endif
         }
+
+        /// <summary>
+        /// General UI button tapped. Crisp tick for menu interaction.
+        /// </summary>
+        public void OnUIButtonTapped()
+        {
+            if (!_enabled) return;
+            Vibration.VibrateIOS(ImpactFeedbackStyle.Light);
+#if UNITY_ANDROID
+            TriggerAndroidPredefinedEffect(2, 10);
+#endif
+        }
+
+#if UNITY_ANDROID
+        /// <summary>
+        /// Attempts to trigger a hardware-level Predefined Effect (like EFFECT_TICK = 2) on API 29+.
+        /// Falls back to a standard millisecond duration if the API is too old.
+        /// </summary>
+        private void TriggerAndroidPredefinedEffect(int effectId, long fallbackMilliseconds)
+        {
+            if (Vibration.AndroidVersion >= 29 && Vibration.vibrationEffect != null && Vibration.vibrator != null)
+            {
+                try
+                {
+                    UnityEngine.AndroidJavaObject effect = Vibration.vibrationEffect.CallStatic<UnityEngine.AndroidJavaObject>("createPredefined", effectId);
+                    Vibration.vibrator.Call("vibrate", effect);
+                    return; // Successfully triggered the hardware effect
+                }
+                catch (System.Exception e)
+                {
+                    UnityEngine.Debug.LogWarning($"[HapticService] Failed to play predefined effect {effectId}: {e.Message}");
+                }
+            }
+            
+            // Fallback for API < 29 or if it throws an error
+            Vibration.VibrateAndroid(fallbackMilliseconds);
+        }
+#endif
     }
 }

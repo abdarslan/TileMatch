@@ -13,11 +13,13 @@ namespace TileMatch.View.UI
         [SerializeField] private UnityEngine.UI.Button _playButton;
         [SerializeField] private Transform _buttonBg;
         private SignalBus _signalBus;
+        private HapticService _hapticService;
+        private bool _hasClickedPlay;
 
-        public void Initialize(SignalBus signalBus)
+        public void Initialize(SignalBus signalBus, HapticService hapticService)
         {
             _signalBus = signalBus;
-
+            _hapticService = hapticService;
 
             Debug.Log($"[MainMenuView] Initialize called. PlayButton is {(_playButton != null ? "Assigned" : "NULL")}");
 
@@ -46,11 +48,23 @@ namespace TileMatch.View.UI
         private void OnGameStateChanged(GameStateChangedSignal signal)
         {
             gameObject.SetActive(signal.NewState == GameplayController.GameState.Menu);
+            if (signal.NewState == GameplayController.GameState.Menu)
+            {
+                _hasClickedPlay = false;
+                if (_playButton != null) _playButton.interactable = true;
+            }
         }
 
         private void OnPlayClicked()
         {
+            if (_hasClickedPlay) return; // Prevent double-clicks
+            _hasClickedPlay = true;
+
+            _hapticService?.OnUIButtonTapped();
+
             Debug.Log("[MainMenuView] Play Button Clicked! Firing StartGameRequestSignal.");
+            // Disable button interaction immediately so player can't click again
+            _playButton.interactable = false;
             _signalBus.Fire(new StartGameRequestSignal());
         }
     }

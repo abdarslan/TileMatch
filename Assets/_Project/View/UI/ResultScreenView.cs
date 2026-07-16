@@ -24,10 +24,12 @@ namespace TileMatch.View.UI
         [SerializeField] private Button _giveUpButton;
 
         private SignalBus _signalBus;
+        private HapticService _hapticService;
 
-        public void Initialize(SignalBus signalBus)
+        public void Initialize(SignalBus signalBus, HapticService hapticService)
         {
             _signalBus = signalBus;
+            _hapticService = hapticService;
             
             if (_continueButton != null)
             {
@@ -100,18 +102,21 @@ namespace TileMatch.View.UI
         private void OnContinueClicked()
         {
             if (_continueButton != null) _continueButton.interactable = false;
-            _signalBus.Fire(new ReturnToMenuRequestSignal());
+            _hapticService?.OnUIButtonTapped();
+            _signalBus.Fire(new NextLevelRequestSignal());
         }
 
         private void OnRestartClicked()
         {
             if (_restartButton != null) _restartButton.interactable = false;
+            _hapticService?.OnUIButtonTapped();
             _signalBus.Fire(new RestartLevelRequestSignal());
         }
 
         private void OnGiveUpClicked()
         {
             if (_giveUpButton != null) _giveUpButton.interactable = false;
+            _hapticService?.OnUIButtonTapped();
             _signalBus.Fire(new ReturnToMenuRequestSignal());
         }
     }
