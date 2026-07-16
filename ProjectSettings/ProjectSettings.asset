@@ -145,8 +145,7 @@ PlayerSettings:
   visionOSBundleVersion: 1.0
   tvOSBundleVersion: 1.0
   bundleVersion: 1.0
-  preloadedAssets:
-  - {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
+  preloadedAssets: []
   metroInputSource: 0
   wsaTransparentSwapchain: 0
   m_HolographicPauseOnTrackingLoss: 1
@@ -414,7 +413,10 @@ PlayerSettings:
   m_BuildTargetGroupLightmapSettings: []
   m_BuildTargetGroupLoadStoreDebugModeSettings: []
   m_BuildTargetNormalMapEncoding: []
-  m_BuildTargetDefaultTextureCompressionFormat: []
+  m_BuildTargetDefaultTextureCompressionFormat:
+  - serializedVersion: 3
+    m_BuildTarget: Android
+    m_Formats: 01000000
   playModeTestRunnerEnabled: 0
   runPlayModeTestAsEditModeTest: 0
   actionOnDotNetUnhandledException: 1
@@ -681,25 +683,25 @@ PlayerSettings:
   webWasm2023: 0
   webEnableSubmoduleStrippingCompatibility: 0
   scriptingDefineSymbols:
-    Android: UNITY_MCP_READY;DOTWEEN
-    EmbeddedLinux: UNITY_MCP_READY;DOTWEEN
-    GameCoreScarlett: UNITY_MCP_READY;DOTWEEN
-    GameCoreXboxOne: UNITY_MCP_READY;DOTWEEN
-    Kepler: UNITY_MCP_READY;DOTWEEN
-    LinuxHeadlessSimulation: UNITY_MCP_READY;DOTWEEN
-    Nintendo Switch: UNITY_MCP_READY;DOTWEEN
-    Nintendo Switch 2: UNITY_MCP_READY;DOTWEEN
-    PS4: UNITY_MCP_READY;DOTWEEN
-    PS5: UNITY_MCP_READY;DOTWEEN
-    QNX: UNITY_MCP_READY;DOTWEEN
+    Android: DOTWEEN;UNITY_MCP_READY
+    EmbeddedLinux: DOTWEEN;UNITY_MCP_READY
+    GameCoreScarlett: DOTWEEN;UNITY_MCP_READY
+    GameCoreXboxOne: DOTWEEN;UNITY_MCP_READY
+    Kepler: DOTWEEN;UNITY_MCP_READY
+    LinuxHeadlessSimulation: DOTWEEN;UNITY_MCP_READY
+    Nintendo Switch: DOTWEEN;UNITY_MCP_READY
+    Nintendo Switch 2: DOTWEEN;UNITY_MCP_READY
+    PS4: DOTWEEN;UNITY_MCP_READY
+    PS5: DOTWEEN;UNITY_MCP_READY
+    QNX: DOTWEEN;UNITY_MCP_READY
     Server: UNITY_MCP_READY
-    Standalone: UNITY_MCP_READY;DOTWEEN
-    VisionOS: UNITY_MCP_READY;DOTWEEN
-    WebGL: UNITY_MCP_READY;DOTWEEN
-    Windows Store Apps: UNITY_MCP_READY;DOTWEEN
-    XboxOne: UNITY_MCP_READY;DOTWEEN
-    iPhone: UNITY_MCP_READY;DOTWEEN
-    tvOS: UNITY_MCP_READY;DOTWEEN
+    Standalone: DOTWEEN;UNITY_MCP_READY
+    VisionOS: DOTWEEN;UNITY_MCP_READY
+    WebGL: DOTWEEN;UNITY_MCP_READY
+    Windows Store Apps: DOTWEEN;UNITY_MCP_READY
+    XboxOne: DOTWEEN;UNITY_MCP_READY
+    iPhone: DOTWEEN;UNITY_MCP_READY
+    tvOS: DOTWEEN;UNITY_MCP_READY
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:

@@ -15,51 +15,43 @@ MonoBehaviour:
   activeTiles:
   - tileID: 1
     typeID: 1
-    visualPosition: {x: 0.5, y: 1, z: 0}
+    visualPosition: {x: -2, y: 1, z: 0}
     blockingTileIDs: 
   - tileID: 2
     typeID: 1
-    visualPosition: {x: 0.5, y: 2, z: 0}
+    visualPosition: {x: -2, y: -1, z: 0}
     blockingTileIDs: 
   - tileID: 3
     typeID: 1
-    visualPosition: {x: 1, y: 1, z: 0}
+    visualPosition: {x: -1, y: 1, z: 0}
     blockingTileIDs: 
   - tileID: 4
     typeID: 7
-    visualPosition: {x: 1, y: 2, z: 0}
+    visualPosition: {x: -1, y: -1, z: 0}
     blockingTileIDs: 
   - tileID: 5
-    typeID: 12
-    visualPosition: {x: 1, y: 3, z: 0}
+    typeID: 15
+    visualPosition: {x: 0, y: 1, z: 0}
     blockingTileIDs: 
   - tileID: 6
-    typeID: 15
-    visualPosition: {x: 1.5, y: 1, z: 0}
+    typeID: 7
+    visualPosition: {x: 0, y: -1, z: 0}
     blockingTileIDs: 
   - tileID: 7
-    typeID: 7
-    visualPosition: {x: 1.5, y: 2, z: 0}
+    typeID: 15
+    visualPosition: {x: 1, y: 1, z: 0}
     blockingTileIDs: 
   - tileID: 8
-    typeID: 12
-    visualPosition: {x: 1.5, y: 3, z: 0}
+    typeID: 7
+    visualPosition: {x: 1, y: -1, z: 0}
     blockingTileIDs: 
   - tileID: 9
-    typeID: 15
+    typeID: 12
     visualPosition: {x: 2, y: 1, z: 0}
     blockingTileIDs: 
   - tileID: 10
-    typeID: 7
-    visualPosition: {x: 2, y: 2, z: 0}
-    blockingTileIDs: 
-  - tileID: 11
-    typeID: 12
-    visualPosition: {x: 2.5, y: 1, z: 0}
-    blockingTileIDs: 
-  - tileID: 12
     typeID: 15
-    visualPosition: {x: 2.5, y: 2, z: 0}
+    visualPosition: {x: 2, y: -1, z: 0}
     blockingTileIDs: 
   pendingOrders:
   - requiredTypeIDs: 010000000100000001000000
@@ -68,5 +60,5 @@ MonoBehaviour:
     currentItemIndex: 0
   - requiredTypeIDs: 0f0000000f0000000f000000
     currentItemIndex: 0
-  - requiredTypeIDs: 0c0000000c0000000c000000
+  - requiredTypeIDs: 0c000000
     currentItemIndex: 0

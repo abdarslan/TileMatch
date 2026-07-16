@@ -14,7 +14,7 @@ namespace TileMatch.Editor
         private float HalfCell         => CellSize * 0.5f;
         private const float GridPadding      = 8f;
         private float PaletteIconSize  => 48f * _zoom;
-        private const float SidebarWidth     = 220f;
+        private const float SidebarWidth     = 240f;
         private const float ToolbarHeight    = 26f;
         private const int   MaxTypeID        = 15;
         private const string SpritesPath     = "Assets/_Project/Sprites";
@@ -23,6 +23,10 @@ namespace TileMatch.Editor
 
         // ── State: target asset ─────────────────────────────────────────────
         private LevelData _level;
+        private List<LevelData> _allLevels = new List<LevelData>();
+        private string[] _levelNames = new string[0];
+        private int _selectedLevelIndex = -1;
+        private bool _autoNextLevel = true;
 
         // ── State: grid configuration ───────────────────────────────────────
         private int _gridCols  = 8;
@@ -40,6 +44,9 @@ namespace TileMatch.Editor
         private int  _selectedType  = 1;
         private bool _eraseMode     = false;
         private bool _showBlocking  = false;
+        
+        private bool _symX = false;
+        private bool _symY = false;
 
         // Post-bake blocking map: key = tileID, value = is directly clickable
         private HashSet<int> _bakedClickable = new HashSet<int>();
@@ -82,6 +89,7 @@ namespace TileMatch.Editor
         private void OnEnable()
         {
             LoadPalette();
+            RefreshLevelList();
             InitCells();
         }
 
@@ -99,13 +107,14 @@ namespace TileMatch.Editor
 
             _headerStyle = new GUIStyle(EditorStyles.boldLabel)
             {
-                fontSize  = 13,
+                fontSize  = 15,
                 alignment = TextAnchor.MiddleLeft
             };
 
             _labelStyle = new GUIStyle(EditorStyles.miniLabel)
             {
-                wordWrap = false
+                wordWrap = false,
+                fontSize = 12
             };
         }
 
@@ -178,30 +187,54 @@ namespace TileMatch.Editor
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUI.BeginChangeCheck();
-                _level = (LevelData)EditorGUILayout.ObjectField(_level, typeof(LevelData), false);
-                if (EditorGUI.EndChangeCheck() && _level != null)
+                if (GUILayout.Button("↻", GUILayout.Width(25)))
                 {
+                    RefreshLevelList();
+                }
+                
+                EditorGUI.BeginChangeCheck();
+                _selectedLevelIndex = EditorGUILayout.Popup(_selectedLevelIndex, _levelNames);
+                if (EditorGUI.EndChangeCheck() && _selectedLevelIndex >= 0 && _selectedLevelIndex < _allLevels.Count)
+                {
+                    _level = _allLevels[_selectedLevelIndex];
                     ImportFromLevel();
                     InitializeReorderableList();
                 }
 
-                if (_level != null && GUILayout.Button("New", GUILayout.Width(45)))
+                EditorGUI.BeginChangeCheck();
+                _level = (LevelData)EditorGUILayout.ObjectField(GUIContent.none, _level, typeof(LevelData), false, GUILayout.Width(60));
+                if (EditorGUI.EndChangeCheck())
                 {
-                    _level = null;
-                    InitCells();
-                    _orderList = null;
+                    SyncSelectedLevelIndex();
+                    if (_level != null)
+                    {
+                        ImportFromLevel();
+                        InitializeReorderableList();
+                    }
                 }
             }
 
-            if (_level == null)
+            using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.HelpBox("Assign a LevelData asset to begin.", MessageType.Info);
-                if (GUILayout.Button("Create New LevelData"))
+                if (GUILayout.Button("Create Auto Level", GUILayout.Height(24)))
                 {
-                    CreateNewLevel();
+                    CreateNextLevel();
+                    ImportFromLevel();
                     InitializeReorderableList();
                 }
+                if (GUILayout.Button("Custom...", GUILayout.Width(70), GUILayout.Height(24)))
+                {
+                    CreateNewLevel();
+                    ImportFromLevel();
+                    InitializeReorderableList();
+                }
+            }
+
+            _autoNextLevel = EditorGUILayout.ToggleLeft("Auto Create Next Level on Bake", _autoNextLevel);
+
+            if (_level == null)
+            {
+                EditorGUILayout.HelpBox("Select or create a LevelData asset to begin.", MessageType.Info);
             }
         }
 
@@ -301,21 +334,7 @@ namespace TileMatch.Editor
                 if (GUILayout.Button("▲", GUILayout.Width(28)) && _activeLayer < _layerCount - 1)
                     _activeLayer++;
             }
-
-            if (_layerOffsetX != null && _activeLayer < _layerOffsetX.Length)
-            {
-                EditorGUI.BeginChangeCheck();
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    _layerOffsetX[_activeLayer] = GUILayout.Toggle(_layerOffsetX[_activeLayer], "Offset X (0.5)");
-                    _layerOffsetY[_activeLayer] = GUILayout.Toggle(_layerOffsetY[_activeLayer], "Offset Y (0.5)");
-                }
-                if (EditorGUI.EndChangeCheck())
-                {
-                    Repaint();
-                }
-            }
-
+            EditorGUILayout.Space(2);
             using (new EditorGUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("Copy Layer"))
@@ -348,6 +367,9 @@ namespace TileMatch.Editor
                     _eraseMode = true;
                 GUI.backgroundColor = prev;
             }
+            
+            EditorGUILayout.Space(4);
+            EditorGUILayout.HelpBox("Left Click: Paint\nRight Click: Erase", MessageType.Info);
         }
 
         private void DrawPaletteSection()
@@ -356,11 +378,28 @@ namespace TileMatch.Editor
 
             if (!_paletteLoaded) return;
 
-            _paletteScrollPos = EditorGUILayout.BeginScrollView(_paletteScrollPos, GUILayout.Height(PaletteIconSize + 30));
+            // Allow the palette to take up more vertical space and wrap
+            _paletteScrollPos = EditorGUILayout.BeginScrollView(_paletteScrollPos, GUILayout.Height(150));
+            
+            // Estimate available width (Window width minus sidebars and scrollbar)
+            float availableWidth = position.width - SidebarWidth - 320f - 25f;
+            if (availableWidth < PaletteIconSize) availableWidth = PaletteIconSize;
+            
+            int iconsPerRow = Mathf.Max(1, Mathf.FloorToInt(availableWidth / (PaletteIconSize + 4f)));
+            
+            EditorGUILayout.BeginVertical();
             EditorGUILayout.BeginHorizontal();
+            int currentInRow = 0;
             
             for (int i = 1; i <= MaxTypeID; i++)
             {
+                if (currentInRow >= iconsPerRow)
+                {
+                    EditorGUILayout.EndHorizontal();
+                    EditorGUILayout.BeginHorizontal();
+                    currentInRow = 0;
+                }
+
                 bool selected = _selectedType == i;
 
                 Color prev = GUI.backgroundColor;
@@ -377,9 +416,11 @@ namespace TileMatch.Editor
                 }
 
                 GUI.backgroundColor = prev;
+                currentInRow++;
             }
             
             EditorGUILayout.EndHorizontal();
+            EditorGUILayout.EndVertical();
             EditorGUILayout.EndScrollView();
         }
 
@@ -416,12 +457,88 @@ namespace TileMatch.Editor
                 DrawLayerTabs();
 
                 _mainScrollPos = EditorGUILayout.BeginScrollView(_mainScrollPos);
-                DrawGrid();
-                EditorGUILayout.Space(12);
+                
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    using (new EditorGUILayout.VerticalScope())
+                    {
+                        DrawGrid();
+                        DrawGridOptions();
+                    }
+                    DrawVerticalLayerNames();
+                }
+                
                 DrawPaletteSection();
                 EditorGUILayout.Space(12);
                 DrawValidationPanel();
                 EditorGUILayout.EndScrollView();
+            }
+        }
+
+        private void DrawGridOptions()
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox, GUILayout.Width(260)))
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        GUILayout.Label("Layer Offset:", EditorStyles.boldLabel, GUILayout.Width(90));
+                        
+                        if (_layerOffsetX != null && _activeLayer < _layerOffsetX.Length)
+                        {
+                            EditorGUI.BeginChangeCheck();
+                            _layerOffsetX[_activeLayer] = EditorGUILayout.ToggleLeft("X (0.5)", _layerOffsetX[_activeLayer], GUILayout.Width(70));
+                            _layerOffsetY[_activeLayer] = EditorGUILayout.ToggleLeft("Y (0.5)", _layerOffsetY[_activeLayer], GUILayout.Width(70));
+                            if (EditorGUI.EndChangeCheck())
+                            {
+                                Repaint();
+                            }
+                        }
+                    }
+                    
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        GUILayout.Label("Symmetry:", EditorStyles.boldLabel, GUILayout.Width(90));
+                        _symX = EditorGUILayout.ToggleLeft("X-Axis", _symX, GUILayout.Width(70));
+                        _symY = EditorGUILayout.ToggleLeft("Y-Axis", _symY, GUILayout.Width(70));
+                    }
+                }
+                GUILayout.FlexibleSpace();
+            }
+        }
+
+        private void DrawVerticalLayerNames()
+        {
+            using (new EditorGUILayout.VerticalScope(GUILayout.Width(120)))
+            {
+                GUILayout.FlexibleSpace();
+                
+                GUIStyle largeText = new GUIStyle(EditorStyles.boldLabel)
+                {
+                    fontSize = 18,
+                    alignment = TextAnchor.MiddleCenter,
+                    normal = { textColor = new Color(0.7f, 0.7f, 0.7f) }
+                };
+
+                GUILayout.Label("TOP", largeText);
+                GUILayout.Space(10);
+                
+                for (int i = _layerCount - 1; i >= 0; i--)
+                {
+                    Color c = (i == _activeLayer) ? Color.cyan : Color.gray;
+                    GUIStyle style = new GUIStyle(EditorStyles.boldLabel) 
+                    { 
+                        normal = { textColor = c }, 
+                        alignment = TextAnchor.MiddleCenter, 
+                        fontSize = 14 
+                    };
+                    GUILayout.Label($"Layer {i}", style);
+                    GUILayout.Space(10);
+                }
+                
+                GUILayout.Label("BOTTOM", largeText);
+                GUILayout.FlexibleSpace();
             }
         }
 
@@ -459,6 +576,7 @@ namespace TileMatch.Editor
             float totalH = _gridRows * CellSize + GridPadding * 2;
 
             _gridScrollPos = EditorGUILayout.BeginScrollView(_gridScrollPos,
+                GUILayout.Width(totalW + 20),
                 GUILayout.Height(Mathf.Min(totalH + 20, position.height * 0.55f)));
 
             Rect canvasRect = GUILayoutUtility.GetRect(totalW, totalH);
@@ -564,6 +682,23 @@ namespace TileMatch.Editor
                     new Vector3(canvas.x + GridPadding + _gridCols * CellSize, y));
             }
 
+            // Draw half-grid lines faintly to help visualize offsets
+            Handles.color = new Color(0.35f, 0.35f, 0.35f, 0.15f);
+            for (int c = 0; c < _gridCols; c++)
+            {
+                float x = canvas.x + GridPadding + c * CellSize + HalfCell;
+                Handles.DrawLine(
+                    new Vector3(x, canvas.y + GridPadding),
+                    new Vector3(x, canvas.y + GridPadding + _gridRows * CellSize));
+            }
+            for (int r = 0; r < _gridRows; r++)
+            {
+                float y = canvas.y + GridPadding + r * CellSize + HalfCell;
+                Handles.DrawLine(
+                    new Vector3(canvas.x + GridPadding, y),
+                    new Vector3(canvas.x + GridPadding + _gridCols * CellSize, y));
+            }
+
             // Active-layer border highlight
             Handles.color = new Color(0.4f, 0.8f, 1f, 0.9f);
             float bx = canvas.x + GridPadding;
@@ -574,6 +709,13 @@ namespace TileMatch.Editor
             Handles.DrawLine(new Vector3(bx + bw, by),      new Vector3(bx + bw, by + bh));
             Handles.DrawLine(new Vector3(bx + bw, by + bh), new Vector3(bx,      by + bh));
             Handles.DrawLine(new Vector3(bx,      by + bh), new Vector3(bx,      by));
+
+            // Emphasize center lines (Quarters)
+            Handles.color = new Color(0.9f, 0.4f, 0.4f, 0.6f); // Faint Red
+            float cx = bx + (bw / 2f);
+            float cy = by + (bh / 2f);
+            Handles.DrawLine(new Vector3(cx, by), new Vector3(cx, by + bh));
+            Handles.DrawLine(new Vector3(bx, cy), new Vector3(bx + bw, cy));
         }
 
         private void HandleGridInput(Rect canvas)
@@ -581,18 +723,40 @@ namespace TileMatch.Editor
             Event e = Event.current;
             if (e.type != EventType.MouseDown && e.type != EventType.MouseDrag) return;
             if (!canvas.Contains(e.mousePosition)) return;
-            if (e.button != 0) return;
+            if (e.button != 0 && e.button != 1) return;
 
-            int col = Mathf.FloorToInt((e.mousePosition.x - canvas.x - GridPadding) / CellSize);
-            int row = Mathf.FloorToInt((e.mousePosition.y - canvas.y - GridPadding) / CellSize);
+            float offsetX = (_layerOffsetX != null && _layerOffsetX[_activeLayer]) ? HalfCell : 0f;
+            float offsetY = (_layerOffsetY != null && _layerOffsetY[_activeLayer]) ? HalfCell : 0f;
+
+            int col = Mathf.FloorToInt((e.mousePosition.x - canvas.x - GridPadding - offsetX) / CellSize);
+            int row = Mathf.FloorToInt((e.mousePosition.y - canvas.y - GridPadding - offsetY) / CellSize);
 
             if (col < 0 || col >= _gridCols || row < 0 || row >= _gridRows) return;
 
-            int newValue = _eraseMode ? 0 : _selectedType;
-            if (_cells[_activeLayer][col, row] == newValue) return;
+            bool isErasing = _eraseMode || e.button == 1;
+            int newValue = isErasing ? 0 : _selectedType;
 
-            Undo.RecordObject(this, _eraseMode ? "Erase Tile" : "Paint Tile");
+            Undo.RecordObject(this, isErasing ? "Erase Tile" : "Paint Tile");
+            
             _cells[_activeLayer][col, row] = newValue;
+            
+            if (_symX)
+            {
+                int symCol = _gridCols - 1 - col;
+                if (symCol >= 0 && symCol < _gridCols) _cells[_activeLayer][symCol, row] = newValue;
+            }
+            if (_symY)
+            {
+                int symRow = _gridRows - 1 - row;
+                if (symRow >= 0 && symRow < _gridRows) _cells[_activeLayer][col, symRow] = newValue;
+            }
+            if (_symX && _symY)
+            {
+                int symCol = _gridCols - 1 - col;
+                int symRow = _gridRows - 1 - row;
+                if (symCol >= 0 && symCol < _gridCols && symRow >= 0 && symRow < _gridRows)
+                    _cells[_activeLayer][symCol, symRow] = newValue;
+            }
 
             SyncOrdersWithGrid();
 
@@ -801,6 +965,13 @@ namespace TileMatch.Editor
             Debug.Log($"[LevelDesignTool] Baked {allTiles.Count} tiles. " +
                       $"Clickable: {_bakedClickable.Count}. " +
                       $"Solvable: {_lastValidation.IsSolvable}");
+
+            if (_lastValidation.IsSolvable && _autoNextLevel)
+            {
+                CreateNextLevel();
+                ImportFromLevel();
+                InitializeReorderableList();
+            }
 
             Repaint();
         }
@@ -1098,7 +1269,73 @@ namespace TileMatch.Editor
             var asset = CreateInstance<LevelData>();
             AssetDatabase.CreateAsset(asset, path);
             AssetDatabase.SaveAssets();
+            
+            RefreshLevelList();
             _level = asset;
+            SyncSelectedLevelIndex();
+        }
+
+        private void CreateNextLevel()
+        {
+            string folderPath = "Assets/_Project/Resources/Levels";
+            if (!AssetDatabase.IsValidFolder("Assets/_Project")) AssetDatabase.CreateFolder("Assets", "_Project");
+            if (!AssetDatabase.IsValidFolder("Assets/_Project/Resources")) AssetDatabase.CreateFolder("Assets/_Project", "Resources");
+            if (!AssetDatabase.IsValidFolder("Assets/_Project/Resources/Levels")) AssetDatabase.CreateFolder("Assets/_Project/Resources", "Levels");
+
+            int nextIndex = _allLevels.Count + 1;
+            int highest = 0;
+            foreach (var l in _allLevels)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(l.name, @"\d+");
+                if (match.Success)
+                {
+                    if (int.TryParse(match.Value, out int val) && val > highest) highest = val;
+                }
+            }
+            if (highest > 0) nextIndex = highest + 1;
+
+            string assetName = $"LevelData_{nextIndex:D2}.asset";
+            string fullPath = $"{folderPath}/{assetName}";
+            
+            LevelData newLevel = CreateInstance<LevelData>();
+            AssetDatabase.CreateAsset(newLevel, fullPath);
+            AssetDatabase.SaveAssets();
+
+            RefreshLevelList();
+            
+            _level = newLevel;
+            SyncSelectedLevelIndex();
+        }
+
+        private void RefreshLevelList()
+        {
+            string[] guids = AssetDatabase.FindAssets("t:LevelData");
+            _allLevels.Clear();
+            foreach (var guid in guids)
+            {
+                string p = AssetDatabase.GUIDToAssetPath(guid);
+                var l = AssetDatabase.LoadAssetAtPath<LevelData>(p);
+                if (l != null) _allLevels.Add(l);
+            }
+            
+            _allLevels.Sort((a, b) => string.Compare(a.name, b.name));
+
+            _levelNames = new string[_allLevels.Count];
+            for (int i = 0; i < _allLevels.Count; i++)
+            {
+                _levelNames[i] = _allLevels[i].name;
+            }
+
+            SyncSelectedLevelIndex();
+        }
+
+        private void SyncSelectedLevelIndex()
+        {
+            _selectedLevelIndex = -1;
+            if (_level != null)
+            {
+                _selectedLevelIndex = _allLevels.IndexOf(_level);
+            }
         }
     }
 }
