@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
-using DG.Tweening;
 
 namespace TileMatch.View
 {
@@ -21,11 +21,23 @@ namespace TileMatch.View
     /// </summary>
     public class OrderTrayView : MonoBehaviour
     {
-        [SerializeField] private Image[]   _itemImages;
+        [SerializeField] private Image[] _itemImages;
         [SerializeField] private Transform _orderTray;
 
         private Vector3 _originalLocalPosition;
-        private bool    _isPositionCached;
+        private bool _isPositionCached;
+
+        [Header("Animation Settings")]
+        [SerializeField] private float _slideYOffset = 1000f;
+
+        private void Awake()
+        {
+            if (_orderTray != null)
+            {
+                _originalLocalPosition = _orderTray.localPosition;
+                _isPositionCached = true;
+            }
+        }
 
         // ── Chain (sequential tray lifecycle) ─────────────────────────────────────
         private UniTask _chainHead = UniTask.CompletedTask;
@@ -85,7 +97,7 @@ namespace TileMatch.View
             // will wait until EnqueuePromotion resolves the new gate.
             _readyTcs = new UniTaskCompletionSource();
 
-            var prev   = _chainHead;
+            var prev = _chainHead;
             _chainHead = RunCompletionAsync(prev, flights, ct);
         }
 
@@ -97,8 +109,8 @@ namespace TileMatch.View
         {
             // Capture the gate that was just created by EnqueueCompletion.
             var tcsToResolve = _readyTcs;
-            var prev         = _chainHead;
-            _chainHead       = RunPromotionAsync(prev, order, icons, tcsToResolve, ct);
+            var prev = _chainHead;
+            _chainHead = RunPromotionAsync(prev, order, icons, tcsToResolve, ct);
         }
 
         // ── Chain internals ───────────────────────────────────────────────────────
@@ -193,10 +205,11 @@ namespace TileMatch.View
             CachePositionIfNeeded();
             // ordertray animates with last order reah scaling up and down back
             _orderTray.DOPunchScale(Vector3.one * _punchScale, _punchDuration, _punchVibra, _punchElasticity);
-            
+
+
 
             await UniTask.Delay(80, cancellationToken: ct).SuppressCancellationThrow();
-            await _orderTray.DOLocalMoveY(_originalLocalPosition.y + 1000f, 0.35f)
+            await _orderTray.DOLocalMoveY(_originalLocalPosition.y + _slideYOffset, 0.35f)
                 .SetEase(Ease.InQuad)
                 .AsyncWaitForCompletion().AsUniTask()
                 .AttachExternalCancellation(ct).SuppressCancellationThrow();
@@ -209,7 +222,7 @@ namespace TileMatch.View
             if (_orderTray == null) return;
             CachePositionIfNeeded();
 
-            _orderTray.localPosition = _originalLocalPosition + new Vector3(0, 1000f, 0);
+            _orderTray.localPosition = _originalLocalPosition + new Vector3(0, _slideYOffset, 0);
 
             await _orderTray.DOLocalMoveY(_originalLocalPosition.y, 0.35f)
                 .SetEase(Ease.OutBack, overshoot: 1.2f)
@@ -221,7 +234,7 @@ namespace TileMatch.View
         {
             for (int i = 0; i < _itemImages.Length; i++)
             {
-                _itemImages[i].sprite  = null;
+                _itemImages[i].sprite = null;
                 _itemImages[i].enabled = false;
             }
         }

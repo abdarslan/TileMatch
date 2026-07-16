@@ -187,7 +187,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TileMatch.View.TileView
   _iconRenderer: {fileID: 4034049942569506334}
   _tileBg: {fileID: 5583303544242933861}
-  _dustParticles: {fileID: 5469113207978941124}
+  _particleSystem: {fileID: 5469113207978941124}
   _blockedBrightness: 0.6
 --- !u!1 &6636807007037551761
 GameObject:

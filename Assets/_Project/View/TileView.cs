@@ -16,7 +16,7 @@ namespace TileMatch.View
         [SerializeField] private SpriteRenderer _iconRenderer;
         [SerializeField] private Transform _tileBg;
 
-        [SerializeField] private ParticleSystem _dustParticles;
+        [SerializeField] private ParticleSystem _particleSystem;
         [SerializeField] private float _blockedBrightness = 0.4f;
 
         public void Setup(int tileID, int typeID, Sprite icon)
@@ -35,6 +35,15 @@ namespace TileMatch.View
             var baseRenderer = _tileBg.GetComponent<SpriteRenderer>();
             if (baseRenderer != null) baseRenderer.sortingOrder = order;
             if (_iconRenderer != null) _iconRenderer.sortingOrder = order + 1;
+            
+            if (_particleSystem != null)
+            {
+                var particleRenderer = _particleSystem.GetComponent<ParticleSystemRenderer>();
+                if (particleRenderer != null)
+                {
+                    particleRenderer.sortingOrder = order + 2;
+                }
+            }
         }
         public void ResetVisuals() {
             _tileBg.gameObject.SetActive(true);
@@ -43,7 +52,7 @@ namespace TileMatch.View
 
         public void PlayDissappearAnimation()
         {
-            _dustParticles.Play();
+            _particleSystem.Play();
             _tileBg.DOScale(Vector3.zero, 0.15f).SetEase(Ease.InBack).OnComplete(() => 
             {
                 DisableBg();

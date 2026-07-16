@@ -48,23 +48,10 @@ namespace TileMatch.View.UI
             gameObject.SetActive(signal.NewState == GameplayController.GameState.Menu);
         }
 
-        private async void OnPlayClicked()
+        private void OnPlayClicked()
         {
             Debug.Log("[MainMenuView] Play Button Clicked! Firing StartGameRequestSignal.");
-            await PlayClickAnimation();
             _signalBus.Fire(new StartGameRequestSignal());
-        }
-
-        private async UniTask PlayClickAnimation()
-        {
-            Vector3 startScale = _buttonBg.localScale;
-            Vector3 targetScale = startScale * 0.99f;
-            var pressSequence = DOTween.Sequence();
-            pressSequence.Append(_buttonBg.DOScale(targetScale, 0.1f));
-            pressSequence.Join(_buttonBg.DOMoveY(_buttonBg.position.y - 0.01f, 0.1f));
-            await pressSequence.AsyncWaitForCompletion().AsUniTask();
-            _buttonBg.DOScale(startScale, 0.1f);
-            _buttonBg.DOMoveY(_buttonBg.position.y + 0.01f, 0.1f);
         }
     }
 }

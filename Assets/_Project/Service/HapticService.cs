@@ -48,7 +48,7 @@ namespace TileMatch.Service
             if (!_enabled) return;
             Vibration.VibrateIOS(ImpactFeedbackStyle.Light);
 #if UNITY_ANDROID
-            Vibration.VibrateAndroid(28);
+            Vibration.VibrateAndroid(28, 12);
 #endif
         }
 

@@ -1,5 +1,6 @@
 using TileMatch.Controller;
 using TileMatch.Service;
+using TileMatch.Signal;
 using TileMatch.Signal.UI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -30,6 +31,7 @@ namespace TileMatch.View.UI
             }
 
             _signalBus.Subscribe<GameStateChangedSignal>(OnGameStateChanged);
+            _signalBus.Subscribe<VisualFeedbackFinishedSignal>(OnVisualFeedbackFinished);
         }
 
         private void OnDestroy()
@@ -37,12 +39,25 @@ namespace TileMatch.View.UI
             if (_signalBus != null)
             {
                 _signalBus.Unsubscribe<GameStateChangedSignal>(OnGameStateChanged);
+                _signalBus.Unsubscribe<VisualFeedbackFinishedSignal>(OnVisualFeedbackFinished);
             }
         }
 
         private void OnGameStateChanged(GameStateChangedSignal signal)
         {
-            gameObject.SetActive(signal.NewState == GameplayController.GameState.Playing);
+            if (signal.NewState == GameplayController.GameState.Playing)
+            {
+                gameObject.SetActive(true);
+            }
+            else if (signal.NewState == GameplayController.GameState.Menu)
+            {
+                gameObject.SetActive(false);
+            }
+        }
+
+        private void OnVisualFeedbackFinished(VisualFeedbackFinishedSignal signal)
+        {
+            gameObject.SetActive(false);
         }
 
         private void OnRestartClicked()

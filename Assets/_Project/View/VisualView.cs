@@ -3,11 +3,11 @@ using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
+using TileMatch.Controller;
 using TileMatch.Model;
 using TileMatch.Service;
 using TileMatch.Signal;
 using TileMatch.Signal.UI;
-using TileMatch.Controller;
 using UnityEngine;
 
 namespace TileMatch.View
@@ -27,11 +27,12 @@ namespace TileMatch.View
     public class VisualView : MonoBehaviour
     {
         // ── Inspector wiring ─────────────────────────────────────────────────
-        [SerializeField] private TileView   _tilePrefab;
-        [SerializeField] private Transform  _poolParent;
+        [SerializeField] private TileView _tilePrefab;
+        [SerializeField] private Transform _poolParent;
+        [SerializeField] private ParticleSystem _confettiParticles;
 
         [Header("Board")]
-        [SerializeField] private Transform  _boardRoot;
+        [SerializeField] private Transform _boardRoot;
 
         [Header("Order Trays — one slot per active order (index 0 and 1)")]
         [SerializeField] private OrderTrayView[] _traySlots;
@@ -43,27 +44,48 @@ namespace TileMatch.View
         [SerializeField] private Sprite[] _typeIcons;
         // ── Animation tuning ─────────────────────────────────────────────────
         [Header("Animation Durations")]
-        [SerializeField] private float TilePickupDuration  = 0.10f;
-        [SerializeField] private float TileRouteDuration   = 0.50f;
-        [SerializeField] private float TilePickupScale     = 1.20f;
-        [SerializeField] private float RackShakeDuration   = 0.40f;
-        [SerializeField] private float WinPunchScale       = 1.30f;
+        [SerializeField] private float TilePickupDuration = 0.10f;
+        [SerializeField] private float TileRouteDuration = 0.50f;
+        [SerializeField] private float TilePickupScale = 1.20f;
+        [SerializeField] private float RackShakeDuration = 0.40f;
+        [SerializeField] private float WinPunchScale = 1.30f;
 
         // ── Runtime state ─────────────────────────────────────────────────────
-        private SignalBus                   _signalBus;
-        private HapticService               _hapticService;
-        private readonly List<TileView>     _pool               = new List<TileView>();
+        private SignalBus _signalBus;
+        private HapticService _hapticService;
+        private readonly List<TileView> _pool = new List<TileView>();
         private readonly Dictionary<int, TileView> _activeTiles = new Dictionary<int, TileView>();
-        private CancellationTokenSource     _levelCts           = new CancellationTokenSource();
-        private Vector3                     _originalTileScale  = Vector3.one;
+        private CancellationTokenSource _levelCts = new CancellationTokenSource();
+        private Vector3 _originalTileScale = Vector3.one;
+        private int _activeTileAnimations = 0;
+
+        private Transform _rackParent;
+        private Vector3 _rackOriginalLocalPos;
+        private Vector3[] _trayOriginalLocalPositions;
 
         // ─────────────────────────────────────────────────────────────────────
         public void Initialize(SignalBus signalBus, HapticService hapticService, int prewarmCount = 64)
         {
             if (_tilePrefab != null) _originalTileScale = _tilePrefab.transform.localScale;
 
-            _signalBus     = signalBus;
+            _signalBus = signalBus;
             _hapticService = hapticService;
+
+            if (_rackSlots != null && _rackSlots.Length > 0 && _rackSlots[0] != null)
+            {
+                _rackParent = _rackSlots[0].transform.parent;
+                _rackOriginalLocalPos = _rackParent.localPosition;
+            }
+
+            if (_traySlots != null && _traySlots.Length > 0)
+            {
+                _trayOriginalLocalPositions = new Vector3[_traySlots.Length];
+                for (int i = 0; i < _traySlots.Length; i++)
+                {
+                    if (_traySlots[i] != null)
+                        _trayOriginalLocalPositions[i] = _traySlots[i].transform.localPosition;
+                }
+            }
 
             PrewarmPool(prewarmCount);
 
@@ -137,11 +159,6 @@ namespace TileMatch.View
             {
                 ClearBoard();
             }
-            else if (signal.NewState == GameplayController.GameState.Failed || signal.NewState == GameplayController.GameState.Won)
-            {
-                // Hide remaining grid tiles so they don't clutter the background behind the Result Screen
-                ReturnAllToPool();
-            }
         }
 
         private void ClearBoard()
@@ -180,43 +197,60 @@ namespace TileMatch.View
 
         private async UniTaskVoid AnimateLevelStartAsync(List<TileData> activeTiles, CancellationToken ct)
         {
-            // Group tiles by their Z coordinate (which represents the layer).
-            // In our sortingOrder math, larger Z means a higher sorting order (on top).
-            // Therefore, we want to animate the smallest Z (deepest layer) first.
+            Sequence sequence = DOTween.Sequence();
+            float timeOffset = 0f;
+
+            // 1. Rack slides in from top
+            if (_rackParent != null)
+            {
+                _rackParent.localPosition = _rackOriginalLocalPos + new Vector3(0, 1500f, 0); // Offscreen top
+                sequence.Insert(timeOffset, _rackParent.DOLocalMoveY(_rackOriginalLocalPos.y, 0.5f).SetEase(Ease.OutBack, overshoot: 1.2f));
+                timeOffset += 0.4f; // Increased delay before trays slide in
+            }
+
+            float trayStartTime = timeOffset;
+            // 2. Orders (Trays) slide in sequentially
+            if (_traySlots != null && _trayOriginalLocalPositions != null)
+            {
+                for (int i = 0; i < _traySlots.Length; i++)
+                {
+                    if (_traySlots[i] != null)
+                    {
+                        _traySlots[i].transform.localPosition = _trayOriginalLocalPositions[i] + new Vector3(0, 1500f, 0); // Offscreen top
+                        sequence.Insert(trayStartTime + (i * 0.2f), _traySlots[i].transform.DOLocalMoveY(_trayOriginalLocalPositions[i].y, 0.5f).SetEase(Ease.OutBack, overshoot: 1.2f));
+                    }
+                }
+            }
+
+            // 3. Grid tiles animate
+            // Start grid tiles slightly after the FIRST tray drops, overlapping the animations
+            float gridStartTime = trayStartTime - 0.1f;
+
             var layers = activeTiles
                 .GroupBy(t => Mathf.RoundToInt(t.visualPosition.z * 100f))
                 .OrderBy(g => g.Key)
                 .ToList();
-            Sequence layerSequence = DOTween.Sequence();
+
             for (int i = 0; i < layers.Count; i++)
             {
-                // Alternating direction: Layer 0 comes from left (-1), Layer 1 from right (1), etc.
                 float direction = (i % 2 == 0) ? -1f : 1f;
-                float offscreenOffset = direction * 10f; // 10 units in world space
-
-                // OPTIMIZATION: Using a DOTween Sequence is much better for low-end devices 
-                // than creating dozens of individual UniTasks. It batches the animations.
-                
+                float offscreenOffset = direction * 7f;
 
                 foreach (TileData data in layers[i])
                 {
                     TileView view = SpawnTile(data);
-                    
                     Vector3 targetPos = view.transform.localPosition;
-                    
-                    // Start offscreen
-                    view.transform.localPosition = targetPos + new Vector3(offscreenOffset, 0, 0);
 
-                    // Insert the tween at time 0 so they all play simultaneously
-                    layerSequence.Insert(0f + i*0.3f, view.transform.DOLocalMoveX(targetPos.x, 0.5f).SetEase(Ease.OutBack, overshoot:1.2f));
+                    view.transform.localPosition = targetPos + new Vector3(offscreenOffset, 0, 0);
+                    sequence.Insert(gridStartTime + (i * 0.3f), view.transform.DOLocalMoveX(targetPos.x, 0.5f).SetEase(Ease.OutBack, overshoot: 1.2f));
                 }
             }
-                // Await the entire sequence as a single task
-                await layerSequence.Play()
-                    .AsyncWaitForCompletion()
-                    .AsUniTask()
-                    .AttachExternalCancellation(ct)
-                    .SuppressCancellationThrow();
+
+            await sequence.Play()
+                .AsyncWaitForCompletion()
+                .AsUniTask()
+                .AttachExternalCancellation(ct)
+                .SuppressCancellationThrow();
 
 
             Debug.Log($"[VisualView] Animated {_activeTiles.Count} tile visuals across {layers.Count} layers.");
@@ -243,19 +277,27 @@ namespace TileMatch.View
             view.SetSortingOrder(30000);
             view.PlayDissappearAnimation(); // Play immediately on tap
 
-            int trayIndex        = Mathf.Clamp(signal.TargetTrayIndex, 0, _traySlots.Length - 1);
-            OrderTrayView tray   = _traySlots[trayIndex];
-            int           itemIdx = signal.TargetItemIndex;
-            CancellationToken ct  = _levelCts.Token;
+            int trayIndex = Mathf.Clamp(signal.TargetTrayIndex, 0, _traySlots.Length - 1);
+            OrderTrayView tray = _traySlots[trayIndex];
+            int itemIdx = signal.TargetItemIndex;
+            CancellationToken ct = _levelCts.Token;
 
-            // The tray internally manages readiness via its gate (UniTaskCompletionSource).
-            // Current-order tiles fly instantly; next-order tiles wait for slide-in.
+            // Track pending visual tasks before queueing
+            _activeTileAnimations++;
+
             tray.EnqueueTileFlight(async () =>
             {
-                Vector3 dest = tray.GetSlotWorldPosition(itemIdx);
-                await AnimateTileToDestinationAsync(view, dest, returnToPool: true, ct);
-                if (!ct.IsCancellationRequested)
-                    tray.AddTile(itemIdx);
+                try
+                {
+                    Vector3 dest = tray.GetSlotWorldPosition(itemIdx);
+                    await AnimateTileToDestinationAsync(view, dest, returnToPool: true, ct);
+                    if (!ct.IsCancellationRequested)
+                        tray.AddTile(itemIdx);
+                }
+                finally
+                {
+                    _activeTileAnimations--;
+                }
             }, ct);
 
             _hapticService.OnTileMatchedOrder();
@@ -263,35 +305,43 @@ namespace TileMatch.View
 
         private void OnTileRoutedFromRackToTray(TileRoutedFromRackToTraySignal signal)
         {
-            int rackIndex        = Mathf.Clamp(signal.SourceRackIndex, 0, _rackSlots.Length - 1);
+            int rackIndex = Mathf.Clamp(signal.SourceRackIndex, 0, _rackSlots.Length - 1);
             RackSlotView rackSlot = _rackSlots[rackIndex];
-            int trayIndex        = Mathf.Clamp(signal.TargetTrayIndex, 0, _traySlots.Length - 1);
-            OrderTrayView tray   = _traySlots[trayIndex];
-            int   itemIdx        = signal.TargetItemIndex;
-            int   typeID         = signal.TypeID;
+            int trayIndex = Mathf.Clamp(signal.TargetTrayIndex, 0, _traySlots.Length - 1);
+            OrderTrayView tray = _traySlots[trayIndex];
+            int itemIdx = signal.TargetItemIndex;
+            int typeID = signal.TypeID;
             CancellationToken ct = _levelCts.Token;
 
             Vector3 startPos = rackSlot.transform.position;
             rackSlot.Clear();
 
             // Spawn the ghost tile IMMEDIATELY so it replaces the rack slot icon
-            // and remains visible while waiting for the tray slide-in.
             TileView ghost = Rent();
             ghost.transform.SetParent(_boardRoot);
-            ghost.transform.position   = startPos;
-            ghost.transform.localScale  = _originalTileScale;
+            ghost.transform.position = startPos;
+            ghost.transform.localScale = _originalTileScale;
             ghost.gameObject.SetActive(true);
             ghost.Setup(-1, typeID, GetIcon(typeID));
             ghost.DisableBg();
             ghost.SetSortingOrder(30000);
 
+            // Track pending visual tasks before queueing
+            _activeTileAnimations++;
+
             tray.EnqueueTileFlight(async () =>
             {
-                // The ghost tile will wait here until the gate opens.
-                Vector3 dest = tray.GetSlotWorldPosition(itemIdx);
-                await AnimateTileToDestinationAsync(ghost, dest, returnToPool: true, ct);
-                if (!ct.IsCancellationRequested)
-                    tray.AddTile(itemIdx);
+                try
+                {
+                    Vector3 dest = tray.GetSlotWorldPosition(itemIdx);
+                    await AnimateTileToDestinationAsync(ghost, dest, returnToPool: true, ct);
+                    if (!ct.IsCancellationRequested)
+                        tray.AddTile(itemIdx);
+                }
+                finally
+                {
+                    _activeTileAnimations--;
+                }
             }, ct);
         }
 
@@ -299,13 +349,15 @@ namespace TileMatch.View
         {
             if (!_activeTiles.TryGetValue(signal.Tile.tileID, out TileView view)) return;
             _activeTiles.Remove(signal.Tile.tileID);
-            
+
             view.SetSortingOrder(30000);
             view.PlayDissappearAnimation();
             int slotIndex = Mathf.Clamp(signal.TargetRackIndex, 0, _rackSlots.Length - 1);
             RackSlotView slot = _rackSlots[slotIndex];
             Sprite icon = GetIcon(signal.Tile.typeID);
 
+            // Track pending visual tasks before starting the fire-and-forget flight
+            _activeTileAnimations++;
             RouteTileToRackAsync(view, slot, icon, _levelCts.Token).Forget();
 
             _hapticService.OnTileSentToRack();
@@ -313,10 +365,17 @@ namespace TileMatch.View
 
         private async UniTaskVoid RouteTileToRackAsync(TileView view, RackSlotView slot, Sprite icon, CancellationToken ct)
         {
-            await AnimateTileToDestinationAsync(view, slot.transform.position, returnToPool: true, ct);
-            if (!ct.IsCancellationRequested)
+            try
             {
-                slot.SetIcon(icon);
+                await AnimateTileToDestinationAsync(view, slot.transform.position, returnToPool: true, ct);
+                if (!ct.IsCancellationRequested)
+                {
+                    slot.SetIcon(icon);
+                }
+            }
+            finally
+            {
+                _activeTileAnimations--;
             }
         }
 
@@ -342,7 +401,7 @@ namespace TileMatch.View
 
         private TileView SpawnTile(TileData data)
         {
-            Sprite icon  = GetIcon(data.typeID);
+            Sprite icon = GetIcon(data.typeID);
             TileView view = Rent();
 
             Vector3 scaledPos = new Vector3(
@@ -357,7 +416,7 @@ namespace TileMatch.View
             view.gameObject.SetActive(true);
             view.Setup(data.tileID, data.typeID, icon);
             view.SetBlockedState(data.blockingTileIDs.Count > 0);
-            
+
             int sortingOrder = Mathf.RoundToInt(data.visualPosition.z * 1000f) - Mathf.RoundToInt(data.visualPosition.y * 100f);
             view.SetSortingOrder(sortingOrder);
 
@@ -386,39 +445,44 @@ namespace TileMatch.View
         private async UniTask AnimateTileToDestinationAsync(
             TileView tile, Vector3 destination, bool returnToPool, CancellationToken ct)
         {
-            Transform t = tile.transform;
-            // 1. Pickup pop
-            await t.DOScale(_originalTileScale * TilePickupScale, TilePickupDuration)
-                   .SetEase(Ease.OutBack)
-                   .AsyncWaitForCompletion()
-                   .AsUniTask()
-                   .AttachExternalCancellation(ct)
-                   .SuppressCancellationThrow();
+            try
+            {
+                Transform t = tile.transform;
+                // 1. Pickup pop
+                await t.DOScale(_originalTileScale * TilePickupScale, TilePickupDuration)
+                       .SetEase(Ease.OutBack)
+                       .AsyncWaitForCompletion()
+                       .AsUniTask()
+                       .AttachExternalCancellation(ct)
+                       .SuppressCancellationThrow();
 
-            if (ct.IsCancellationRequested) { Return(tile); return; }
+                if (ct.IsCancellationRequested) return;
 
-            // 2. Route to destination with a slight arc (Z-rotation for visual flair)
-            Sequence seq = DOTween.Sequence();
-            seq.Join(t.DOMove(destination, TileRouteDuration).SetEase(Ease.InOutQuart));
-            seq.Join(t.DOScale(_originalTileScale, TileRouteDuration).SetEase(Ease.InQuart));
-            seq.Join(t.DORotate(new Vector3(0f, 0f, Random.Range(-25f, 25f)), TileRouteDuration * 0.5f)
-                      .SetEase(Ease.OutCubic)
-                      .SetLoops(2, LoopType.Yoyo));
+                // 2. Route to destination with a slight arc (Z-rotation for visual flair)
+                Sequence seq = DOTween.Sequence();
+                seq.Join(t.DOMove(destination, TileRouteDuration).SetEase(Ease.InOutQuart));
+                seq.Join(t.DOScale(_originalTileScale, TileRouteDuration).SetEase(Ease.InQuart));
+                seq.Join(t.DORotate(new Vector3(0f, 0f, Random.Range(-25f, 25f)), TileRouteDuration * 0.5f)
+                          .SetEase(Ease.OutCubic)
+                          .SetLoops(2, LoopType.Yoyo));
 
-            await seq.AsyncWaitForCompletion()
-                     .AsUniTask()
-                     .AttachExternalCancellation(ct)
-                     .SuppressCancellationThrow();
+                await seq.AsyncWaitForCompletion()
+                         .AsUniTask()
+                         .AttachExternalCancellation(ct)
+                         .SuppressCancellationThrow();
 
-            if (ct.IsCancellationRequested) { Return(tile); return; }
+                if (ct.IsCancellationRequested) return;
 
-            // 3. Snap to exact slot position
-            t.position   = destination;
-            t.localScale = _originalTileScale;
-            t.rotation   = Quaternion.identity;
-
-            if (returnToPool)
-                Return(tile);
+                // 3. Snap to exact slot position
+                t.position = destination;
+                t.localScale = _originalTileScale;
+                t.rotation = Quaternion.identity;
+            }
+            finally
+            {
+                if (returnToPool)
+                    Return(tile);
+            }
         }
 
         /// <summary>
@@ -426,38 +490,62 @@ namespace TileMatch.View
         /// </summary>
         private async UniTaskVoid PlayRackFullFeedbackAsync(CancellationToken ct)
         {
-            if (_rackSlots == null || _rackSlots.Length == 0) return;
+            await UniTask.WaitUntil(() => _activeTileAnimations == 0, cancellationToken: ct)
+                         .SuppressCancellationThrow();
 
-            Transform rackParent = _rackSlots[0].transform.parent;
-            if (rackParent == null) return;
+            if (ct.IsCancellationRequested) return;
 
-            await rackParent.DOShakePosition(RackShakeDuration, strength: 0.18f, vibrato: 18, randomness: 45f)
-                            .AsyncWaitForCompletion()
-                            .AsUniTask()
-                            .AttachExternalCancellation(ct)
-                            .SuppressCancellationThrow();
+            if (_rackSlots != null && _rackSlots.Length > 0)
+            {
+                Transform rackParent = _rackSlots[0].transform.parent;
+                if (rackParent != null)
+                {
+                    // Fire and forget the shake so we don't block the 0.5s timer
+                    rackParent.DOShakePosition(RackShakeDuration, strength: 0.18f, vibrato: 18, randomness: 45f);
+                }
+            }
+
+            // Wait exactly 0.5s total before triggering the lose screen
+            await UniTask.WaitForSeconds(0.5f, cancellationToken: ct).SuppressCancellationThrow();
+            
+            if (ct.IsCancellationRequested) return;
+
+            // Slide out the rack concurrently with the result screen popping up
+            if (_rackParent != null)
+            {
+                _rackParent.DOLocalMoveY(_rackOriginalLocalPos.y - 1500f, 0.5f).SetEase(Ease.InBack);
+            }
+
+            ReturnAllToPool();
+            _signalBus.Fire(new VisualFeedbackFinishedSignal { IsWin = false });
         }
 
         /// <summary>
-        /// All active board tiles do a celebratory punch scale on win.
+        /// Plays confetti celebration after the final tile lands in the tray.
         /// </summary>
         private async UniTaskVoid PlayWinFeedbackAsync(CancellationToken ct)
         {
-            float delay = 0f;
-            foreach (var kvp in _activeTiles)
+            await UniTask.WaitUntil(() => _activeTileAnimations == 0, cancellationToken: ct)
+                         .SuppressCancellationThrow();
+
+            if (ct.IsCancellationRequested) return;
+
+            if (_confettiParticles != null)
             {
-                Transform t = kvp.Value.transform;
-                float captured = delay;
-
-                DOTween.Sequence()
-                       .AppendInterval(captured)
-                       .Append(t.DOPunchScale(Vector3.one * (WinPunchScale - 1f), 0.3f, 6, 0.5f));
-
-                delay += 0.04f;
+                _confettiParticles.Play();
             }
 
-            await UniTask.WaitForSeconds(delay + 0.35f, cancellationToken: ct)
-                         .SuppressCancellationThrow();
+            if (_rackParent != null)
+            {
+                _rackParent.DOLocalMoveY(_rackOriginalLocalPos.y - 1500f, 0.5f).SetEase(Ease.InBack);
+            }
+
+            await UniTask.WaitForSeconds(0.5f, cancellationToken: ct).SuppressCancellationThrow();
+            if (!ct.IsCancellationRequested)
+            {
+                ReturnAllToPool();
+                _signalBus.Fire(new VisualFeedbackFinishedSignal { IsWin = true });
+            }
         }
     }
 }

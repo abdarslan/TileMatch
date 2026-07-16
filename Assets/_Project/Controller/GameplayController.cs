@@ -74,9 +74,9 @@ namespace TileMatch.Controller
         // ─────────────────────────────────────────────────────────────────────
         private void OnStartGameRequest(StartGameRequestSignal signal)
         {
-            _currentLevelIndex = 0;
             if (_sequence != null && _sequence.Length > 0)
             {
+                if (_currentLevelIndex >= _sequence.Length) _currentLevelIndex = 0;
                 StartLevel(_sequence[_currentLevelIndex]);
             }
         }
@@ -182,34 +182,28 @@ namespace TileMatch.Controller
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        private async void OnRackFull(RackFullSignal signal)
+        private void OnRackFull(RackFullSignal signal)
         {
             if (CurrentState != GameState.Playing) return;
 
             Debug.Log("[GameplayController] Rack full — level FAILED.");
-            
-            // Allow visual animations (like tile routing and rack shaking) to finish before showing ResultScreen
-            await Cysharp.Threading.Tasks.UniTask.WaitForSeconds(1.5f);
-            
-            if (CurrentState == GameState.Playing)
-            {
-                SetState(GameState.Failed);
-            }
+            SetState(GameState.Failed);
         }
 
-        private async void OnLevelCompleted(LevelCompletedSignal signal)
+        private void OnLevelCompleted(LevelCompletedSignal signal)
         {
             if (CurrentState != GameState.Playing) return;
 
             Debug.Log("[GameplayController] All orders fulfilled — level WON.");
             
-            // Allow visual animations (like win punch scale) to finish before showing ResultScreen
-            await Cysharp.Threading.Tasks.UniTask.WaitForSeconds(1.5f);
-            
-            if (CurrentState == GameState.Playing)
+            _currentLevelIndex++;
+            if (_sequence != null && _currentLevelIndex >= _sequence.Length)
             {
-                SetState(GameState.Won);
+                Debug.Log("[GameplayController] Finished final level in sequence. Looping back to level 0.");
+                _currentLevelIndex = 0;
             }
+            
+            SetState(GameState.Won);
         }
     }
 }
