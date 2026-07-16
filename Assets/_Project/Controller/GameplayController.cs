@@ -182,20 +182,34 @@ namespace TileMatch.Controller
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        private void OnRackFull(RackFullSignal signal)
+        private async void OnRackFull(RackFullSignal signal)
         {
             if (CurrentState != GameState.Playing) return;
 
             Debug.Log("[GameplayController] Rack full — level FAILED.");
-            SetState(GameState.Failed);
+            
+            // Allow visual animations (like tile routing and rack shaking) to finish before showing ResultScreen
+            await Cysharp.Threading.Tasks.UniTask.WaitForSeconds(1.5f);
+            
+            if (CurrentState == GameState.Playing)
+            {
+                SetState(GameState.Failed);
+            }
         }
 
-        private void OnLevelCompleted(LevelCompletedSignal signal)
+        private async void OnLevelCompleted(LevelCompletedSignal signal)
         {
             if (CurrentState != GameState.Playing) return;
 
             Debug.Log("[GameplayController] All orders fulfilled — level WON.");
-            SetState(GameState.Won);
+            
+            // Allow visual animations (like win punch scale) to finish before showing ResultScreen
+            await Cysharp.Threading.Tasks.UniTask.WaitForSeconds(1.5f);
+            
+            if (CurrentState == GameState.Playing)
+            {
+                SetState(GameState.Won);
+            }
         }
     }
 }

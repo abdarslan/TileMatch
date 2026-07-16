@@ -137,6 +137,11 @@ namespace TileMatch.View
             {
                 ClearBoard();
             }
+            else if (signal.NewState == GameplayController.GameState.Failed || signal.NewState == GameplayController.GameState.Won)
+            {
+                // Hide remaining grid tiles so they don't clutter the background behind the Result Screen
+                ReturnAllToPool();
+            }
         }
 
         private void ClearBoard()
