@@ -2,6 +2,7 @@ using TileMatch.Controller;
 using TileMatch.Model;
 using TileMatch.Service;
 using TileMatch.View;
+using TileMatch.View.UI;
 using UnityEngine;
 
 namespace TileMatch.Installer
@@ -13,9 +14,13 @@ namespace TileMatch.Installer
     /// </summary>
     public class GameplayInstaller : MonoBehaviour
     {
-        [SerializeField] private LevelData  _targetLevel;
         [SerializeField] private InputView  _inputView;
         [SerializeField] private VisualView _visualView;
+
+        [Header("UI Views")]
+        [SerializeField] private MainMenuView     _mainMenuView;
+        [SerializeField] private GameplayHUDView  _gameplayHUDView;
+        [SerializeField] private ResultScreenView _resultScreenView;
 
         // Core
         private RuntimeGameState _state;
@@ -30,6 +35,8 @@ namespace TileMatch.Installer
 
         private void Awake()
         {
+            Application.targetFrameRate = 120; // Force 120 FPS for mobile builds
+            
             // 1. Data & Services
             _state         = new RuntimeGameState();
             _signalBus     = new SignalBus();
@@ -45,14 +52,21 @@ namespace TileMatch.Installer
             _inputView.Initialize(_signalBus);
             _visualView.Initialize(_signalBus, _hapticService);
 
-            // 4. Start the level
-            if (_targetLevel != null)
+            if (_mainMenuView != null)     _mainMenuView.Initialize(_signalBus);
+            if (_gameplayHUDView != null)  _gameplayHUDView.Initialize(_signalBus);
+            if (_resultScreenView != null) _resultScreenView.Initialize(_signalBus);
+
+            // 4. Init the level sequence (Starts in Menu state)
+            LevelData[] allLevels = Resources.LoadAll<LevelData>("Levels");
+            if (allLevels != null && allLevels.Length > 0)
             {
-                _gameplayController.StartLevel(_targetLevel);
+                // Ensure they are ordered correctly by name (LevelData_01, LevelData_02, etc.)
+                System.Array.Sort(allLevels, (a, b) => string.Compare(a.name, b.name));
+                _gameplayController.InitSequence(allLevels);
             }
             else
             {
-                Debug.LogError("[GameplayInstaller] Target Level is missing! Cannot start the game.");
+                Debug.LogError("[GameplayInstaller] No LevelData assets found in Resources/Levels! Cannot start the game.");
             }
         }
 

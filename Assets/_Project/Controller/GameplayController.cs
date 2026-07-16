@@ -2,24 +2,30 @@ using System.Collections.Generic;
 using TileMatch.Model;
 using TileMatch.Service;
 using TileMatch.Signal;
+using TileMatch.Signal.UI;
 using UnityEngine;
 
 namespace TileMatch.Controller
 {
     /// <summary>
-    /// Manages the high-level game-state machine (Idle → Playing → Won | Failed).
+    /// Manages the high-level game-state machine (Menu → Playing → Won | Failed).
     /// Owns level initialisation: deep-copies <see cref="LevelData"/> into
     /// <see cref="RuntimeGameState"/> so the ScriptableObject asset is never
     /// mutated at runtime. Promotes the first active orders on start.
+    /// Handles sequential progression through the level list.
     /// </summary>
     public class GameplayController
     {
-        public enum GameState { Idle, Playing, Won, Failed }
+        public enum GameState { Menu, Playing, Won, Failed }
 
-        public GameState CurrentState { get; private set; } = GameState.Idle;
+        public GameState CurrentState { get; private set; } = GameState.Menu;
 
         private readonly RuntimeGameState _state;
         private readonly SignalBus        _signalBus;
+        
+        private LevelData[] _sequence;
+        private int _currentLevelIndex = 0;
+        private System.Threading.CancellationTokenSource _cts = new System.Threading.CancellationTokenSource();
 
         public GameplayController(RuntimeGameState state, SignalBus signalBus)
         {
@@ -28,12 +34,82 @@ namespace TileMatch.Controller
 
             _signalBus.Subscribe<RackFullSignal>(OnRackFull);
             _signalBus.Subscribe<LevelCompletedSignal>(OnLevelCompleted);
+
+            // UI Intent subscriptions
+            _signalBus.Subscribe<StartGameRequestSignal>(OnStartGameRequest);
+            _signalBus.Subscribe<ReturnToMenuRequestSignal>(OnReturnToMenuRequest);
+            _signalBus.Subscribe<RestartLevelRequestSignal>(OnRestartLevelRequest);
+            _signalBus.Subscribe<NextLevelRequestSignal>(OnNextLevelRequest);
         }
 
         public void Dispose()
         {
+            _cts.Cancel();
+            _cts.Dispose();
+            
             _signalBus.Unsubscribe<RackFullSignal>(OnRackFull);
             _signalBus.Unsubscribe<LevelCompletedSignal>(OnLevelCompleted);
+
+            _signalBus.Unsubscribe<StartGameRequestSignal>(OnStartGameRequest);
+            _signalBus.Unsubscribe<ReturnToMenuRequestSignal>(OnReturnToMenuRequest);
+            _signalBus.Unsubscribe<RestartLevelRequestSignal>(OnRestartLevelRequest);
+            _signalBus.Unsubscribe<NextLevelRequestSignal>(OnNextLevelRequest);
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        public void InitSequence(LevelData[] sequence)
+        {
+            _sequence = sequence;
+            _currentLevelIndex = 0;
+            
+            SetState(GameState.Menu);
+        }
+
+        private void SetState(GameState newState)
+        {
+            CurrentState = newState;
+            _signalBus.Fire(new GameStateChangedSignal { NewState = CurrentState });
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        private void OnStartGameRequest(StartGameRequestSignal signal)
+        {
+            _currentLevelIndex = 0;
+            if (_sequence != null && _sequence.Length > 0)
+            {
+                StartLevel(_sequence[_currentLevelIndex]);
+            }
+        }
+
+        private void OnReturnToMenuRequest(ReturnToMenuRequestSignal signal)
+        {
+            SetState(GameState.Menu);
+        }
+
+        private void OnRestartLevelRequest(RestartLevelRequestSignal signal)
+        {
+            if (_sequence != null && _sequence.Length > _currentLevelIndex)
+            {
+                StartLevel(_sequence[_currentLevelIndex]);
+            }
+        }
+
+        private void OnNextLevelRequest(NextLevelRequestSignal signal)
+        {
+            _currentLevelIndex++;
+            if (_sequence != null && _currentLevelIndex < _sequence.Length)
+            {
+                StartLevel(_sequence[_currentLevelIndex]);
+            }
+            else
+            {
+                Debug.Log("[GameplayController] YOU BEAT ALL LEVELS! Looping back to level 1.");
+                _currentLevelIndex = 0;
+                if (_sequence != null && _sequence.Length > 0)
+                {
+                    StartLevel(_sequence[_currentLevelIndex]);
+                }
+            }
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -44,7 +120,7 @@ namespace TileMatch.Controller
         public void StartLevel(LevelData level)
         {
             PopulateRuntimeState(level);
-            CurrentState = GameState.Playing;
+            SetState(GameState.Playing);
             _signalBus.Fire(new LevelStartedSignal { Level = level });
 
             // Fire OrderPromotedSignal for initial active orders
@@ -110,16 +186,16 @@ namespace TileMatch.Controller
         {
             if (CurrentState != GameState.Playing) return;
 
-            CurrentState = GameState.Failed;
             Debug.Log("[GameplayController] Rack full — level FAILED.");
+            SetState(GameState.Failed);
         }
 
         private void OnLevelCompleted(LevelCompletedSignal signal)
         {
             if (CurrentState != GameState.Playing) return;
 
-            CurrentState = GameState.Won;
             Debug.Log("[GameplayController] All orders fulfilled — level WON.");
+            SetState(GameState.Won);
         }
     }
 }
