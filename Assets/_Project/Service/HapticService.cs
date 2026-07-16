@@ -17,8 +17,25 @@ namespace TileMatch.Service
 
         public HapticService()
         {
-            Vibration.Init();
-            _enabled = Vibration.HasVibrator();
+            try 
+            {
+                Vibration.Init();
+                _enabled = Vibration.HasVibrator();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[HapticService] Failed to initialize vibration: {e.Message}");
+                _enabled = false;
+            }
+
+            // DUMMY CALL: This is never executed, but its presence in the compiled IL code 
+            // forces Unity's static analyzer to automatically add the 
+            // <uses-permission android:name="android.permission.VIBRATE"/> 
+            // to the AndroidManifest.xml during the build process!
+            if (Application.isEditor && !_enabled && _enabled) 
+            {
+                Handheld.Vibrate();
+            }
         }
 
         // ── Per-action haptic signatures ──────────────────────────────────────

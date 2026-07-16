@@ -171,6 +171,10 @@ MonoBehaviour:
   - {fileID: 4121378792371362194}
   - {fileID: 1564164242105906467}
   _orderTray: {fileID: 918644433160018175}
+  _punchScale: 0.15
+  _punchVibra: 0
+  _punchDuration: 0.25
+  _punchElasticity: 1
 --- !u!1 &5826503946309042339
 GameObject:
   m_ObjectHideFlags: 0

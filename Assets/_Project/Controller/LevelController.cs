@@ -23,14 +23,28 @@ namespace TileMatch.Controller
             _state     = state;
             _signalBus = signalBus;
 
+            _signalBus.Subscribe<LevelStartedSignal>(OnLevelStarted);
+        }
+
+        public void Dispose()
+        {
+            _signalBus.Unsubscribe<LevelStartedSignal>(OnLevelStarted);
+            Deactivate();
+        }
+
+        private void OnLevelStarted(LevelStartedSignal signal) => Activate();
+
+        private void Activate()
+        {
+            if (_active) return;
+            _active = true;
+
             _signalBus.Subscribe<TileTapIntentSignal>(OnTileTapIntent);
             _signalBus.Subscribe<RackFullSignal>(OnGameEnded);
             _signalBus.Subscribe<LevelCompletedSignal>(OnGameEnded);
 
-            _active = true;
+            Debug.Log("[LevelController] Activated.");
         }
-
-        public void Dispose() => Deactivate();
 
         // ─────────────────────────────────────────────────────────────────────
         private void OnTileTapIntent(TileTapIntentSignal signal)

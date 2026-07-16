@@ -1,10 +1,13 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using TileMatch.Model;
 using TileMatch.Service;
 using TileMatch.Signal;
+using TileMatch.Signal.UI;
+using TileMatch.Controller;
 using UnityEngine;
 
 namespace TileMatch.View
@@ -73,6 +76,7 @@ namespace TileMatch.View
             _signalBus.Subscribe<RackFullSignal>(OnRackFull);
             _signalBus.Subscribe<LevelCompletedSignal>(OnLevelCompleted);
             _signalBus.Subscribe<TileUnblockedSignal>(OnTileUnblocked);
+            _signalBus.Subscribe<GameStateChangedSignal>(OnGameStateChanged);
         }
 
         private void OnDestroy()
@@ -90,6 +94,7 @@ namespace TileMatch.View
             _signalBus.Unsubscribe<RackFullSignal>(OnRackFull);
             _signalBus.Unsubscribe<LevelCompletedSignal>(OnLevelCompleted);
             _signalBus.Unsubscribe<TileUnblockedSignal>(OnTileUnblocked);
+            _signalBus.Unsubscribe<GameStateChangedSignal>(OnGameStateChanged);
         }
 
         // ── Pool ──────────────────────────────────────────────────────────────
@@ -126,7 +131,15 @@ namespace TileMatch.View
         }
 
         // ── Signal handlers ───────────────────────────────────────────────────
-        private void OnLevelStarted(LevelStartedSignal signal)
+        private void OnGameStateChanged(GameStateChangedSignal signal)
+        {
+            if (signal.NewState == GameplayController.GameState.Menu)
+            {
+                ClearBoard();
+            }
+        }
+
+        private void ClearBoard()
         {
             ReturnAllToPool();
 
@@ -142,55 +155,80 @@ namespace TileMatch.View
             if (_traySlots != null)
             {
                 foreach (var tray in _traySlots)
-                    if (tray != null) tray.Clear();
+                {
+                    if (tray != null)
+                    {
+                        tray.ResetChain();
+                        tray.Clear();
+                    }
+                }
             }
+        }
 
-            foreach (TileData data in signal.Level.activeTiles)
-                SpawnTile(data);
+        private void OnLevelStarted(LevelStartedSignal signal)
+        {
+            ClearBoard();
 
-            Debug.Log($"[VisualView] Spawned {_activeTiles.Count} tile visuals.");
+            // Fire-and-forget the level start animation sequence
+            AnimateLevelStartAsync(signal.Level.activeTiles, _levelCts.Token).Forget();
+        }
+
+        private async UniTaskVoid AnimateLevelStartAsync(List<TileData> activeTiles, CancellationToken ct)
+        {
+            // Group tiles by their Z coordinate (which represents the layer).
+            // In our sortingOrder math, larger Z means a higher sorting order (on top).
+            // Therefore, we want to animate the smallest Z (deepest layer) first.
+            var layers = activeTiles
+                .GroupBy(t => Mathf.RoundToInt(t.visualPosition.z * 100f))
+                .OrderBy(g => g.Key)
+                .ToList();
+            Sequence layerSequence = DOTween.Sequence();
+            for (int i = 0; i < layers.Count; i++)
+            {
+                // Alternating direction: Layer 0 comes from left (-1), Layer 1 from right (1), etc.
+                float direction = (i % 2 == 0) ? -1f : 1f;
+                float offscreenOffset = direction * 10f; // 10 units in world space
+
+                // OPTIMIZATION: Using a DOTween Sequence is much better for low-end devices 
+                // than creating dozens of individual UniTasks. It batches the animations.
+                
+
+                foreach (TileData data in layers[i])
+                {
+                    TileView view = SpawnTile(data);
+                    
+                    Vector3 targetPos = view.transform.localPosition;
+                    
+                    // Start offscreen
+                    view.transform.localPosition = targetPos + new Vector3(offscreenOffset, 0, 0);
+
+                    // Insert the tween at time 0 so they all play simultaneously
+                    layerSequence.Insert(0f + i*0.3f, view.transform.DOLocalMoveX(targetPos.x, 0.5f).SetEase(Ease.OutBack, overshoot:1.2f));
+                }
+            }
+                // Await the entire sequence as a single task
+                await layerSequence.Play()
+                    .AsyncWaitForCompletion()
+                    .AsUniTask()
+                    .AttachExternalCancellation(ct)
+                    .SuppressCancellationThrow();
+
+
+            Debug.Log($"[VisualView] Animated {_activeTiles.Count} tile visuals across {layers.Count} layers.");
         }
 
         private void OnOrderCompleted(OrderCompletedSignal signal)
         {
             if (_traySlots == null || signal.TrayIndex < 0 || signal.TrayIndex >= _traySlots.Length) return;
-            HandleOrderCompletedAsync(signal, _levelCts.Token).Forget();
-        }
-
-        private async UniTaskVoid HandleOrderCompletedAsync(OrderCompletedSignal signal, CancellationToken ct)
-        {
             OrderTrayView tray = _traySlots[signal.TrayIndex];
-            bool isCanceled = await tray.WaitUntilFreeAsync(ct).SuppressCancellationThrow();
-            if (isCanceled || ct.IsCancellationRequested) return;
-
-            // Old order finished, play the celebration
-            await tray.PlayCompletionAnimationAsync(ct).SuppressCancellationThrow();
+            tray.EnqueueCompletion(_levelCts.Token);
         }
 
         private void OnOrderPromoted(OrderPromotedSignal signal)
         {
             if (_traySlots == null || signal.TrayIndex < 0 || signal.TrayIndex >= _traySlots.Length) return;
-            HandleOrderPromotedAsync(signal, _levelCts.Token).Forget();
-        }
-
-        private async UniTaskVoid HandleOrderPromotedAsync(OrderPromotedSignal signal, CancellationToken ct)
-        {
             OrderTrayView tray = _traySlots[signal.TrayIndex];
-            
-            // Loop to prevent race conditions with HandleOrderCompletedAsync.
-            // If they wake up at the exact same time, yielding 1 frame allows the completion
-            // animation to start and increment _pendingAnimations, so we can wait for it properly.
-            while (true)
-            {
-                bool isCanceled = await tray.WaitUntilFreeAsync(ct).SuppressCancellationThrow();
-                if (isCanceled || ct.IsCancellationRequested) return;
-
-                await UniTask.Yield(PlayerLoopTiming.Update, ct);
-                if (tray.IsFree) break;
-            }
-
-            tray.Initialize(signal.Order, _typeIcons);
-            await tray.SlideInAnimationAsync(ct, signal.TrayIndex).SuppressCancellationThrow();
+            tray.EnqueuePromotion(signal.Order, _typeIcons, _levelCts.Token);
         }
 
         private void OnTileRoutedToTray(TileRoutedToTraySignal signal)
@@ -198,61 +236,58 @@ namespace TileMatch.View
             if (!_activeTiles.TryGetValue(signal.Tile.tileID, out TileView view)) return;
             _activeTiles.Remove(signal.Tile.tileID);
             view.SetSortingOrder(30000);
-            view.PlayDissappearAnimation();
+            view.PlayDissappearAnimation(); // Play immediately on tap
 
-            int trayIndex = Mathf.Clamp(signal.TargetTrayIndex, 0, _traySlots.Length - 1);
-            OrderTrayView tray = _traySlots[trayIndex];
+            int trayIndex        = Mathf.Clamp(signal.TargetTrayIndex, 0, _traySlots.Length - 1);
+            OrderTrayView tray   = _traySlots[trayIndex];
+            int           itemIdx = signal.TargetItemIndex;
+            CancellationToken ct  = _levelCts.Token;
 
-            RouteTileToTrayAsync(view, tray, signal.TargetItemIndex, _levelCts.Token).Forget();
+            // The tray internally manages readiness via its gate (UniTaskCompletionSource).
+            // Current-order tiles fly instantly; next-order tiles wait for slide-in.
+            tray.EnqueueTileFlight(async () =>
+            {
+                Vector3 dest = tray.GetSlotWorldPosition(itemIdx);
+                await AnimateTileToDestinationAsync(view, dest, returnToPool: true, ct);
+                if (!ct.IsCancellationRequested)
+                    tray.AddTile(itemIdx);
+            }, ct);
 
             _hapticService.OnTileMatchedOrder();
         }
 
-        private async UniTaskVoid RouteTileToTrayAsync(TileView view, OrderTrayView tray, int itemIndex, CancellationToken ct)
-        {
-            tray.OnAnimationStarted();
-            Vector3 destination = tray.GetSlotWorldPosition(itemIndex);
-            await AnimateTileToDestinationAsync(view, destination, returnToPool: true, ct);
-            if (!ct.IsCancellationRequested)
-            {
-                tray.AddTile(itemIndex);
-            }
-            tray.OnAnimationFinished();
-        }
-
         private void OnTileRoutedFromRackToTray(TileRoutedFromRackToTraySignal signal)
         {
-            int rackIndex = Mathf.Clamp(signal.SourceRackIndex, 0, _rackSlots.Length - 1);
+            int rackIndex        = Mathf.Clamp(signal.SourceRackIndex, 0, _rackSlots.Length - 1);
             RackSlotView rackSlot = _rackSlots[rackIndex];
-            
-            // 1. Logic is instant: Clear the rack slot immediately so the player sees the tile leave the rack
+            int trayIndex        = Mathf.Clamp(signal.TargetTrayIndex, 0, _traySlots.Length - 1);
+            OrderTrayView tray   = _traySlots[trayIndex];
+            int   itemIdx        = signal.TargetItemIndex;
+            int   typeID         = signal.TypeID;
+            CancellationToken ct = _levelCts.Token;
+
             Vector3 startPos = rackSlot.transform.position;
             rackSlot.Clear();
 
-            // 2. Pass the job to a Fire-and-Forget async task
-            RouteFromRackWhenTrayIsReadyAsync(signal, startPos, _levelCts.Token).Forget();
-        }
+            // Spawn the ghost tile IMMEDIATELY so it replaces the rack slot icon
+            // and remains visible while waiting for the tray slide-in.
+            TileView ghost = Rent();
+            ghost.transform.SetParent(_boardRoot);
+            ghost.transform.position   = startPos;
+            ghost.transform.localScale  = _originalTileScale;
+            ghost.gameObject.SetActive(true);
+            ghost.Setup(-1, typeID, GetIcon(typeID));
+            ghost.DisableBg();
+            ghost.SetSortingOrder(30000);
 
-        private async UniTaskVoid RouteFromRackWhenTrayIsReadyAsync(TileRoutedFromRackToTraySignal signal, Vector3 startPos, CancellationToken ct)
-        {
-            int trayIndex = Mathf.Clamp(signal.TargetTrayIndex, 0, _traySlots.Length - 1);
-            OrderTrayView tray = _traySlots[trayIndex];
-
-            // 3. THE MAGIC: We wait until the Tray is completely done with the PREVIOUS order!
-            bool isCanceled = await tray.WaitUntilFreeAsync(ct).SuppressCancellationThrow();
-            if (isCanceled || ct.IsCancellationRequested) return;
-
-            // 4. Now that the tray is visually empty and ready for the new order, we spawn the ghost tile and fly!
-            TileView view = Rent();
-            view.transform.SetParent(_boardRoot);
-            view.transform.position = startPos;
-            view.transform.localScale = _originalTileScale;
-            view.gameObject.SetActive(true);
-            view.Setup(-1, signal.TypeID, GetIcon(signal.TypeID));
-            view.DisableBg();
-            view.SetSortingOrder(30000);
-
-            RouteTileToTrayAsync(view, tray, signal.TargetItemIndex, ct).Forget();
+            tray.EnqueueTileFlight(async () =>
+            {
+                // The ghost tile will wait here until the gate opens.
+                Vector3 dest = tray.GetSlotWorldPosition(itemIdx);
+                await AnimateTileToDestinationAsync(ghost, dest, returnToPool: true, ct);
+                if (!ct.IsCancellationRequested)
+                    tray.AddTile(itemIdx);
+            }, ct);
         }
 
         private void OnTileRoutedToRack(TileRoutedToRackSignal signal)
@@ -300,7 +335,7 @@ namespace TileMatch.View
             }
         }
 
-        private void SpawnTile(TileData data)
+        private TileView SpawnTile(TileData data)
         {
             Sprite icon  = GetIcon(data.typeID);
             TileView view = Rent();
@@ -322,6 +357,7 @@ namespace TileMatch.View
             view.SetSortingOrder(sortingOrder);
 
             _activeTiles.Add(data.tileID, view);
+            return view;
         }
 
         private Sprite GetIcon(int typeID)
