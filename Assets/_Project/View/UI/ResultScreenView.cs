@@ -4,38 +4,46 @@ using TileMatch.Service;
 using TileMatch.Signal.UI;
 using UnityEngine;
 using UnityEngine.UI;
+using Cysharp.Threading.Tasks;
+using DG.Tweening;
 
 namespace TileMatch.View.UI
 {
     public class ResultScreenView : MonoBehaviour
     {
-        [SerializeField] private TextMeshProUGUI _titleText;
-        [SerializeField] private Button _nextButton;
-        [SerializeField] private Button _retryButton;
-        [SerializeField] private Button _menuButton;
+        [SerializeField] private TextMeshProUGUI _resultText;
         
+        [Header("Containers")]
+        [SerializeField] private GameObject _winButtons;
+        [SerializeField] private GameObject _loseButtons;
+
+        [Header("Buttons")]
+        [SerializeField] private Button _continueButton;
+        [SerializeField] private Button _restartButton;
+        [SerializeField] private Button _giveUpButton;
+
         private SignalBus _signalBus;
 
         public void Initialize(SignalBus signalBus)
         {
             _signalBus = signalBus;
             
-            if (_nextButton != null)
+            if (_continueButton != null)
             {
-                _nextButton.onClick.RemoveAllListeners();
-                _nextButton.onClick.AddListener(OnNextClicked);
+                _continueButton.onClick.RemoveAllListeners();
+                _continueButton.onClick.AddListener(OnContinueClicked);
             }
 
-            if (_retryButton != null)
+            if (_restartButton != null)
             {
-                _retryButton.onClick.RemoveAllListeners();
-                _retryButton.onClick.AddListener(OnRetryClicked);
+                _restartButton.onClick.RemoveAllListeners();
+                _restartButton.onClick.AddListener(OnRestartClicked);
             }
 
-            if (_menuButton != null)
+            if (_giveUpButton != null)
             {
-                _menuButton.onClick.RemoveAllListeners();
-                _menuButton.onClick.AddListener(OnMenuClicked);
+                _giveUpButton.onClick.RemoveAllListeners();
+                _giveUpButton.onClick.AddListener(OnGiveUpClicked);
             }
 
             _signalBus.Subscribe<GameStateChangedSignal>(OnGameStateChanged);
@@ -54,16 +62,16 @@ namespace TileMatch.View.UI
             if (signal.NewState == GameplayController.GameState.Won)
             {
                 gameObject.SetActive(true);
-                if (_titleText != null) _titleText.text = "Victory!";
-                if (_nextButton != null) _nextButton.gameObject.SetActive(true);
-                if (_retryButton != null) _retryButton.gameObject.SetActive(false);
+                if (_resultText != null) _resultText.text = "You Won!";
+                if (_winButtons != null) _winButtons.SetActive(true);
+                if (_loseButtons != null) _loseButtons.SetActive(false);
             }
             else if (signal.NewState == GameplayController.GameState.Failed)
             {
                 gameObject.SetActive(true);
-                if (_titleText != null) _titleText.text = "Game Over!";
-                if (_nextButton != null) _nextButton.gameObject.SetActive(false);
-                if (_retryButton != null) _retryButton.gameObject.SetActive(true);
+                if (_resultText != null) _resultText.text = "You Lost!";
+                if (_winButtons != null) _winButtons.SetActive(false);
+                if (_loseButtons != null) _loseButtons.SetActive(true);
             }
             else
             {
@@ -71,19 +79,50 @@ namespace TileMatch.View.UI
             }
         }
 
-        private void OnNextClicked()
+        private async void OnContinueClicked()
         {
-            _signalBus.Fire(new NextLevelRequestSignal());
+            if (_continueButton != null)
+            {
+                _continueButton.interactable = false;
+                await PlayClickAnimation(_continueButton.transform);
+            }
+            _signalBus.Fire(new ReturnToMenuRequestSignal());
         }
 
-        private void OnRetryClicked()
+        private async void OnRestartClicked()
         {
+            if (_restartButton != null)
+            {
+                _restartButton.interactable = false;
+                await PlayClickAnimation(_restartButton.transform);
+            }
             _signalBus.Fire(new RestartLevelRequestSignal());
         }
 
-        private void OnMenuClicked()
+        private async void OnGiveUpClicked()
         {
+            if (_giveUpButton != null)
+            {
+                _giveUpButton.interactable = false;
+                await PlayClickAnimation(_giveUpButton.transform);
+            }
             _signalBus.Fire(new ReturnToMenuRequestSignal());
+        }
+
+        private async UniTask PlayClickAnimation(Transform target)
+        {
+            Vector3 startScale = target.localScale;
+            Vector3 targetScale = startScale * 0.99f;
+            var pressSequence = DOTween.Sequence();
+            pressSequence.Append(target.DOScale(targetScale, 0.1f));
+            pressSequence.Join(target.DOMoveY(target.position.y - 0.01f, 0.1f));
+            await pressSequence.AsyncWaitForCompletion().AsUniTask();
+            
+            if (target != null)
+            {
+                target.DOScale(startScale, 0.1f);
+                target.DOMoveY(target.position.y + 0.01f, 0.1f);
+            }
         }
     }
 }
