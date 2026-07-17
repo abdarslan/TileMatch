@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::TileMatch.Model.LevelData
   activeTiles:
   - tileID: 1
-    typeID: 4
+    typeID: 5
     visualPosition: {x: -2, y: -2, z: 0}
     blockingTileIDs: 1a000000
   - tileID: 2
@@ -22,15 +22,15 @@ MonoBehaviour:
     visualPosition: {x: -2, y: -1, z: 0}
     blockingTileIDs: 1a0000001b000000
   - tileID: 3
-    typeID: 6
+    typeID: 5
     visualPosition: {x: -2, y: 0, z: 0}
     blockingTileIDs: 1b0000001c000000
   - tileID: 4
-    typeID: 3
+    typeID: 6
     visualPosition: {x: -2, y: 1, z: 0}
     blockingTileIDs: 1c0000001d000000
   - tileID: 5
-    typeID: 9
+    typeID: 5
     visualPosition: {x: -2, y: 2, z: 0}
     blockingTileIDs: 1d000000
   - tileID: 6
@@ -38,19 +38,19 @@ MonoBehaviour:
     visualPosition: {x: -1, y: -2, z: 0}
     blockingTileIDs: 1a0000001e000000
   - tileID: 7
-    typeID: 6
+    typeID: 1
     visualPosition: {x: -1, y: -1, z: 0}
     blockingTileIDs: 1a0000001b0000001e0000001f000000
   - tileID: 8
-    typeID: 8
+    typeID: 1
     visualPosition: {x: -1, y: 0, z: 0}
     blockingTileIDs: 1b0000001c0000001f00000020000000
   - tileID: 9
-    typeID: 7
+    typeID: 3
     visualPosition: {x: -1, y: 1, z: 0}
     blockingTileIDs: 1c0000001d0000002000000021000000
   - tileID: 10
-    typeID: 1
+    typeID: 8
     visualPosition: {x: -1, y: 2, z: 0}
     blockingTileIDs: 1d00000021000000
   - tileID: 11
@@ -62,43 +62,43 @@ MonoBehaviour:
     visualPosition: {x: 0, y: -1, z: 0}
     blockingTileIDs: 1e0000001f0000002200000023000000
   - tileID: 13
-    typeID: 1
+    typeID: 9
     visualPosition: {x: 0, y: 0, z: 0}
     blockingTileIDs: 1f000000200000002300000024000000
   - tileID: 14
-    typeID: 6
+    typeID: 4
     visualPosition: {x: 0, y: 1, z: 0}
     blockingTileIDs: 20000000210000002400000025000000
   - tileID: 15
-    typeID: 8
+    typeID: 7
     visualPosition: {x: 0, y: 2, z: 0}
     blockingTileIDs: 2100000025000000
   - tileID: 16
-    typeID: 2
+    typeID: 8
     visualPosition: {x: 1, y: -2, z: 0}
     blockingTileIDs: 2200000026000000
   - tileID: 17
-    typeID: 3
+    typeID: 7
     visualPosition: {x: 1, y: -1, z: 0}
     blockingTileIDs: 22000000230000002600000027000000
   - tileID: 18
-    typeID: 2
+    typeID: 7
     visualPosition: {x: 1, y: 0, z: 0}
     blockingTileIDs: 23000000240000002700000028000000
   - tileID: 19
-    typeID: 4
+    typeID: 3
     visualPosition: {x: 1, y: 1, z: 0}
     blockingTileIDs: 24000000250000002800000029000000
   - tileID: 20
-    typeID: 8
+    typeID: 7
     visualPosition: {x: 1, y: 2, z: 0}
     blockingTileIDs: 2500000029000000
   - tileID: 21
-    typeID: 4
+    typeID: 8
     visualPosition: {x: 2, y: -2, z: 0}
     blockingTileIDs: 26000000
   - tileID: 22
-    typeID: 6
+    typeID: 1
     visualPosition: {x: 2, y: -1, z: 0}
     blockingTileIDs: 2600000027000000
   - tileID: 23
@@ -106,35 +106,35 @@ MonoBehaviour:
     visualPosition: {x: 2, y: 0, z: 0}
     blockingTileIDs: 2700000028000000
   - tileID: 24
-    typeID: 8
+    typeID: 7
     visualPosition: {x: 2, y: 1, z: 0}
     blockingTileIDs: 2800000029000000
   - tileID: 25
-    typeID: 3
+    typeID: 6
     visualPosition: {x: 2, y: 2, z: 0}
     blockingTileIDs: 29000000
   - tileID: 26
-    typeID: 5
+    typeID: 3
     visualPosition: {x: -1.5, y: -1.5, z: 1}
     blockingTileIDs: 2a000000
   - tileID: 27
-    typeID: 5
+    typeID: 4
     visualPosition: {x: -1.5, y: -0.5, z: 1}
     blockingTileIDs: 2a0000002b000000
   - tileID: 28
-    typeID: 5
+    typeID: 2
     visualPosition: {x: -1.5, y: 0.5, z: 1}
     blockingTileIDs: 2b0000002c000000
   - tileID: 29
-    typeID: 7
+    typeID: 4
     visualPosition: {x: -1.5, y: 1.5, z: 1}
     blockingTileIDs: 2c000000
   - tileID: 30
-    typeID: 5
+    typeID: 8
     visualPosition: {x: -0.5, y: -1.5, z: 1}
     blockingTileIDs: 2a0000002d000000
   - tileID: 31
-    typeID: 3
+    typeID: 8
     visualPosition: {x: -0.5, y: -0.5, z: 1}
     blockingTileIDs: 2a0000002b0000002d0000002e000000
   - tileID: 32
@@ -142,31 +142,31 @@ MonoBehaviour:
     visualPosition: {x: -0.5, y: 0.5, z: 1}
     blockingTileIDs: 2b0000002c0000002e0000002f000000
   - tileID: 33
-    typeID: 6
+    typeID: 4
     visualPosition: {x: -0.5, y: 1.5, z: 1}
     blockingTileIDs: 2c0000002f000000
   - tileID: 34
-    typeID: 2
+    typeID: 6
     visualPosition: {x: 0.5, y: -1.5, z: 1}
     blockingTileIDs: 2d00000030000000
   - tileID: 35
-    typeID: 4
+    typeID: 5
     visualPosition: {x: 0.5, y: -0.5, z: 1}
     blockingTileIDs: 2d0000002e0000003000000031000000
   - tileID: 36
-    typeID: 9
+    typeID: 1
     visualPosition: {x: 0.5, y: 0.5, z: 1}
     blockingTileIDs: 2e0000002f0000003100000032000000
   - tileID: 37
-    typeID: 7
+    typeID: 6
     visualPosition: {x: 0.5, y: 1.5, z: 1}
     blockingTileIDs: 2f00000032000000
   - tileID: 38
-    typeID: 3
+    typeID: 7
     visualPosition: {x: 1.5, y: -1.5, z: 1}
     blockingTileIDs: 30000000
   - tileID: 39
-    typeID: 7
+    typeID: 6
     visualPosition: {x: 1.5, y: -0.5, z: 1}
     blockingTileIDs: 3000000031000000
   - tileID: 40
@@ -174,95 +174,95 @@ MonoBehaviour:
     visualPosition: {x: 1.5, y: 0.5, z: 1}
     blockingTileIDs: 3100000032000000
   - tileID: 41
-    typeID: 1
+    typeID: 5
     visualPosition: {x: 1.5, y: 1.5, z: 1}
     blockingTileIDs: 32000000
   - tileID: 42
-    typeID: 2
+    typeID: 9
     visualPosition: {x: -1, y: -1, z: 2}
     blockingTileIDs: 33000000
   - tileID: 43
-    typeID: 8
+    typeID: 1
     visualPosition: {x: -1, y: 0, z: 2}
     blockingTileIDs: 3300000034000000
   - tileID: 44
-    typeID: 1
+    typeID: 3
     visualPosition: {x: -1, y: 1, z: 2}
     blockingTileIDs: 34000000
   - tileID: 45
-    typeID: 3
+    typeID: 4
     visualPosition: {x: 0, y: -1, z: 2}
     blockingTileIDs: 3300000035000000
   - tileID: 46
-    typeID: 5
+    typeID: 9
     visualPosition: {x: 0, y: 0, z: 2}
     blockingTileIDs: 33000000340000003500000036000000
   - tileID: 47
-    typeID: 4
+    typeID: 3
     visualPosition: {x: 0, y: 1, z: 2}
     blockingTileIDs: 3400000036000000
   - tileID: 48
-    typeID: 8
+    typeID: 5
     visualPosition: {x: 1, y: -1, z: 2}
     blockingTileIDs: 35000000
   - tileID: 49
-    typeID: 7
+    typeID: 4
     visualPosition: {x: 1, y: 0, z: 2}
     blockingTileIDs: 3500000036000000
   - tileID: 50
-    typeID: 5
+    typeID: 3
     visualPosition: {x: 1, y: 1, z: 2}
     blockingTileIDs: 36000000
   - tileID: 51
-    typeID: 7
+    typeID: 8
     visualPosition: {x: -0.5, y: -0.5, z: 3}
     blockingTileIDs: 
   - tileID: 52
-    typeID: 9
+    typeID: 2
     visualPosition: {x: -0.5, y: 0.5, z: 3}
     blockingTileIDs: 
   - tileID: 53
-    typeID: 4
+    typeID: 2
     visualPosition: {x: 0.5, y: -0.5, z: 3}
     blockingTileIDs: 
   - tileID: 54
-    typeID: 1
+    typeID: 2
     visualPosition: {x: 0.5, y: 0.5, z: 3}
     blockingTileIDs: 
   pendingOrders:
-  - requiredTypeIDs: 060000000600000006000000
-    currentItemIndex: 0
-  - requiredTypeIDs: 080000000800000008000000
+  - requiredTypeIDs: 020000000200000002000000
     currentItemIndex: 0
   - requiredTypeIDs: 030000000300000003000000
     currentItemIndex: 0
-  - requiredTypeIDs: 020000000200000002000000
-    currentItemIndex: 0
   - requiredTypeIDs: 040000000400000004000000
-    currentItemIndex: 0
-  - requiredTypeIDs: 070000000700000007000000
-    currentItemIndex: 0
-  - requiredTypeIDs: 010000000100000001000000
-    currentItemIndex: 0
-  - requiredTypeIDs: 090000000900000009000000
-    currentItemIndex: 0
-  - requiredTypeIDs: 040000000400000004000000
-    currentItemIndex: 0
-  - requiredTypeIDs: 080000000800000008000000
     currentItemIndex: 0
   - requiredTypeIDs: 050000000500000005000000
-    currentItemIndex: 0
-  - requiredTypeIDs: 090000000900000009000000
-    currentItemIndex: 0
-  - requiredTypeIDs: 020000000200000002000000
-    currentItemIndex: 0
-  - requiredTypeIDs: 010000000100000001000000
     currentItemIndex: 0
   - requiredTypeIDs: 060000000600000006000000
     currentItemIndex: 0
-  - requiredTypeIDs: 050000000500000005000000
+  - requiredTypeIDs: 070000000700000007000000
+    currentItemIndex: 0
+  - requiredTypeIDs: 080000000800000008000000
+    currentItemIndex: 0
+  - requiredTypeIDs: 090000000900000009000000
+    currentItemIndex: 0
+  - requiredTypeIDs: 010000000100000001000000
+    currentItemIndex: 0
+  - requiredTypeIDs: 020000000200000002000000
     currentItemIndex: 0
   - requiredTypeIDs: 030000000300000003000000
     currentItemIndex: 0
+  - requiredTypeIDs: 040000000400000004000000
+    currentItemIndex: 0
+  - requiredTypeIDs: 050000000500000005000000
+    currentItemIndex: 0
+  - requiredTypeIDs: 060000000600000006000000
+    currentItemIndex: 0
   - requiredTypeIDs: 070000000700000007000000
+    currentItemIndex: 0
+  - requiredTypeIDs: 080000000800000008000000
+    currentItemIndex: 0
+  - requiredTypeIDs: 090000000900000009000000
+    currentItemIndex: 0
+  - requiredTypeIDs: 010000000100000001000000
     currentItemIndex: 0
