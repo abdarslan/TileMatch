@@ -6,7 +6,23 @@ namespace TileMatch.Model
     [CreateAssetMenu(fileName = "LevelData", menuName = "TileMatch/Level Data")]
     public class LevelData : ScriptableObject
     {
-        public List<TileData> activeTiles = new List<TileData>();
-        public List<OrderData> pendingOrders = new List<OrderData>();
+        [UnityEngine.Serialization.FormerlySerializedAs("activeTiles")]
+        [SerializeField] private List<TileData> _activeTiles = new List<TileData>();
+        [UnityEngine.Serialization.FormerlySerializedAs("pendingOrders")]
+        [SerializeField] private List<OrderData> _pendingOrders = new List<OrderData>();
+        
+        public IReadOnlyList<TileData> activeTiles => _activeTiles;
+        public IReadOnlyList<OrderData> pendingOrders => _pendingOrders;
+        
+#if UNITY_EDITOR
+        public void SetData(List<TileData> newTiles, List<OrderData> newOrders)
+        {
+            _activeTiles = newTiles;
+            _pendingOrders = newOrders;
+        }
+        
+        public List<TileData> EditorActiveTiles { get => _activeTiles; set => _activeTiles = value; }
+        public List<OrderData> EditorPendingOrders { get => _pendingOrders; set => _pendingOrders = value; }
+#endif
     }
 }

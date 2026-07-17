@@ -6,6 +6,6 @@ namespace TileMatch.Model
     public class OrderData
     {
         public List<int> requiredTypeIDs = new List<int>();
-        public int currentItemIndex;
+        public int CurrentItemIndex { get; internal set; }
     }
 }

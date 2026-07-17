@@ -42,8 +42,9 @@ namespace TileMatch.Controller
             _signalBus.Subscribe<TileTapIntentSignal>(OnTileTapIntent);
             _signalBus.Subscribe<RackFullSignal>(OnGameEnded);
             _signalBus.Subscribe<LevelCompletedSignal>(OnGameEnded);
-
+#if UNITY_EDITOR
             Debug.Log("[LevelController] Activated.");
+#endif
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -53,20 +54,25 @@ namespace TileMatch.Controller
 
             if (!_state.RuntimeTiles.TryGetValue(signal.TileID, out TileData tile))
             {
+#if UNITY_EDITOR
                 Debug.Log($"[LevelController] TileID {signal.TileID} not found on board — ignoring.");
+#endif
                 return;
             }
 
             if (tile.blockingTileIDs.Count > 0)
             {
+#if UNITY_EDITOR
                 Debug.Log($"[LevelController] TileID {signal.TileID} blocked by {tile.blockingTileIDs.Count} tile(s) — ignoring.");
+#endif
                 return;
             }
 
             _state.RuntimeTiles.Remove(tile.tileID);
             UnblockDependents(tile.tileID);
-
+#if UNITY_EDITOR
             Debug.Log($"[LevelController] TileID {tile.tileID} (type {tile.typeID}) removed. Remaining: {_state.RuntimeTiles.Count}.");
+#endif
 
             _signalBus.Fire(new TileValidatedSignal { Tile = tile });
         }
@@ -96,8 +102,9 @@ namespace TileMatch.Controller
             _signalBus.Unsubscribe<TileTapIntentSignal>(OnTileTapIntent);
             _signalBus.Unsubscribe<RackFullSignal>(OnGameEnded);
             _signalBus.Unsubscribe<LevelCompletedSignal>(OnGameEnded);
-
+#if UNITY_EDITOR
             Debug.Log("[LevelController] Deactivated.");
+#endif
         }
     }
 }

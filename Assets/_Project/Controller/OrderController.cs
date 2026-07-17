@@ -18,6 +18,7 @@ namespace TileMatch.Controller
     {
         private readonly RuntimeGameState _state;
         private readonly SignalBus        _signalBus;
+        private bool _levelCompleteFired;
 
         public OrderController(RuntimeGameState state, SignalBus signalBus)
         {
@@ -25,11 +26,18 @@ namespace TileMatch.Controller
             _signalBus = signalBus;
 
             _signalBus.Subscribe<TileValidatedSignal>(OnTileValidated);
+            _signalBus.Subscribe<LevelStartedSignal>(OnLevelStarted);
         }
 
         public void Dispose()
         {
             _signalBus.Unsubscribe<TileValidatedSignal>(OnTileValidated);
+            _signalBus.Unsubscribe<LevelStartedSignal>(OnLevelStarted);
+        }
+
+        private void OnLevelStarted(LevelStartedSignal signal)
+        {
+            _levelCompleteFired = false;
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -42,25 +50,27 @@ namespace TileMatch.Controller
                 OrderData order = _state.ActiveOrders[i];
                 if (order == null) continue;
 
-                if (order.currentItemIndex >= order.requiredTypeIDs.Count) continue;
-                if (order.requiredTypeIDs[order.currentItemIndex] != tile.typeID) continue;
+                if (order.CurrentItemIndex >= order.requiredTypeIDs.Count) continue;
+                if (order.requiredTypeIDs[order.CurrentItemIndex] != tile.typeID) continue;
 
-                order.currentItemIndex++;
+                order.CurrentItemIndex++;
                 _signalBus.Fire(new TileRoutedToTraySignal { 
                     Tile = tile, 
                     TargetTrayIndex = i,
-                    TargetItemIndex = order.currentItemIndex - 1
+                    TargetItemIndex = order.CurrentItemIndex - 1
                 });
+#if UNITY_EDITOR
+                Debug.Log($"[OrderController] TileID {tile.tileID} (type {tile.typeID}) matched order[{i}] slot {order.CurrentItemIndex - 1}.");
+#endif
 
-                Debug.Log($"[OrderController] TileID {tile.tileID} (type {tile.typeID}) matched order[{i}] slot {order.currentItemIndex - 1}.");
-
-                if (order.currentItemIndex >= order.requiredTypeIDs.Count)
+                if (order.CurrentItemIndex >= order.requiredTypeIDs.Count)
                     CompleteOrder(i);
 
                 return;
             }
-
+#if UNITY_EDITOR
             Debug.Log($"[OrderController] TileID {tile.tileID} (type {tile.typeID}) matched no active order — firing TileUnmatchedSignal.");
+#endif
             _signalBus.Fire(new TileUnmatchedSignal { Tile = tile });
         }
 
@@ -68,7 +78,9 @@ namespace TileMatch.Controller
         private void CompleteOrder(int orderIndex)
         {
             _state.ActiveOrders[orderIndex] = null;
+#if UNITY_EDITOR
             Debug.Log($"[OrderController] Order {orderIndex} completed. Pending: {_state.PendingOrders.Count}.");
+#endif
 
             _signalBus.Fire(new OrderCompletedSignal { TrayIndex = orderIndex });
 
@@ -80,9 +92,12 @@ namespace TileMatch.Controller
                 if (_state.ActiveOrders[i] != null) hasActive = true;
             }
 
-            if (!hasActive && _state.PendingOrders.Count == 0)
+            if (!hasActive && _state.PendingOrders.Count == 0 && !_levelCompleteFired)
             {
-                Debug.Log("[OrderController] All orders fulfilled — firing LevelCompletedSignal.");
+#if UNITY_EDITOR
+                Debug.Log("[OrderController] All orders fulfilled - firing LevelCompletedSignal.");
+#endif
+                _levelCompleteFired = true;
                 _signalBus.Fire(new LevelCompletedSignal());
             }
         }
@@ -93,7 +108,9 @@ namespace TileMatch.Controller
             {
                 var order = _state.PendingOrders.Dequeue();
                 _state.ActiveOrders[trayIndex] = order;
+#if UNITY_EDITOR
                 Debug.Log($"[OrderController] Promoted next pending order to active at tray {trayIndex}.");
+#endif
                 _signalBus.Fire(new OrderPromotedSignal { Order = order, TrayIndex = trayIndex });
 
                 TryFulfillFromRack(trayIndex);
@@ -108,30 +125,32 @@ namespace TileMatch.Controller
             if (order == null) return;
 
             bool foundMatch = true;
-            while (foundMatch && order.currentItemIndex < order.requiredTypeIDs.Count)
+            while (foundMatch && order.CurrentItemIndex < order.requiredTypeIDs.Count)
             {
                 foundMatch = false;
-                int neededType = order.requiredTypeIDs[order.currentItemIndex];
+                int neededType = order.requiredTypeIDs[order.CurrentItemIndex];
 
                 for (int r = 0; r < _state.Rack.Length; r++)
                 {
                     if (_state.Rack[r] == neededType)
                     {
                         _state.Rack[r] = 0; // Claim it
-                        order.currentItemIndex++;
+                        order.CurrentItemIndex++;
 
                         _signalBus.Fire(new TileRoutedFromRackToTraySignal 
                         { 
                             SourceRackIndex = r,
                             TargetTrayIndex = orderIndex,
-                            TargetItemIndex = order.currentItemIndex - 1,
+                            TargetItemIndex = order.CurrentItemIndex - 1,
                             TypeID = neededType
                         });
 
                         foundMatch = true;
-                        Debug.Log($"[OrderController] Rack slot {r} matched newly promoted order[{orderIndex}] slot {order.currentItemIndex - 1}.");
+#if UNITY_EDITOR
+                        Debug.Log($"[OrderController] Rack slot {r} matched newly promoted order[{orderIndex}] slot {order.CurrentItemIndex - 1}.");
+#endif
 
-                        if (order.currentItemIndex >= order.requiredTypeIDs.Count)
+                        if (order.CurrentItemIndex >= order.requiredTypeIDs.Count)
                         {
                             CompleteOrder(orderIndex);
                             return; // This order is done

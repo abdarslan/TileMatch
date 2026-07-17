@@ -1,9 +1,9 @@
-using TileMatch.Controller;
+using TileMatch.Model;
 
 namespace TileMatch.Signal.UI
 {
     public struct GameStateChangedSignal
     {
-        public GameplayController.GameState NewState;
+        public GameState NewState;
     }
 }

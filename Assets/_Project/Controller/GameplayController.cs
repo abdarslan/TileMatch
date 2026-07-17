@@ -16,8 +16,6 @@ namespace TileMatch.Controller
     /// </summary>
     public class GameplayController
     {
-        public enum GameState { Menu, Playing, Won, Failed }
-
         public GameState CurrentState { get; private set; } = GameState.Menu;
 
         private readonly RuntimeGameState _state;
@@ -100,7 +98,9 @@ namespace TileMatch.Controller
             {
                 if (_currentLevelIndex >= _sequence.Length)
                 {
+#if UNITY_EDITOR
                     Debug.Log("[GameplayController] YOU BEAT ALL LEVELS! Looping back to level 1.");
+#endif
                     _currentLevelIndex = 0;
                 }
                 StartLevel(_sequence[_currentLevelIndex]);
@@ -126,10 +126,11 @@ namespace TileMatch.Controller
                     _signalBus.Fire(new OrderPromotedSignal { Order = _state.ActiveOrders[i], TrayIndex = i });
                 }
             }
-
+#if UNITY_EDITOR
             Debug.Log($"[GameplayController] Level started. " +
                       $"Tiles: {_state.RuntimeTiles.Count}, " +
                       $"Pending orders: {_state.PendingOrders.Count}.");
+#endif
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -162,7 +163,7 @@ namespace TileMatch.Controller
                 _state.PendingOrders.Enqueue(new OrderData
                 {
                     requiredTypeIDs = new List<int>(source.requiredTypeIDs),
-                    currentItemIndex = 0
+                    CurrentItemIndex = 0
                 });
             }
 
@@ -180,21 +181,25 @@ namespace TileMatch.Controller
         private void OnRackFull(RackFullSignal signal)
         {
             if (CurrentState != GameState.Playing) return;
-
+#if UNITY_EDITOR
             Debug.Log("[GameplayController] Rack full — level FAILED.");
+#endif
             SetState(GameState.Failed);
         }
 
         private void OnLevelCompleted(LevelCompletedSignal signal)
         {
             if (CurrentState != GameState.Playing) return;
-
+#if UNITY_EDITOR
             Debug.Log("[GameplayController] All orders fulfilled — level WON.");
+#endif
             
             _currentLevelIndex++;
             if (_sequence != null && _currentLevelIndex >= _sequence.Length)
             {
+#if UNITY_EDITOR
                 Debug.Log("[GameplayController] Finished final level in sequence. Looping back to level 0.");
+#endif
                 _currentLevelIndex = 0;
             }
             
