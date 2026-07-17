@@ -29,8 +29,10 @@ namespace TileMatch.View
 
         public event Action OnTrayVisualCompletion;
 
-        [Header("Animation Settings")]
+        [Header("Slide Animation")]
         [SerializeField] private float _slideYOffset = 1000f;
+        
+        [Header("Completion Punch Animation")]
         [SerializeField] private float _punchScale = 0.2f;
         [SerializeField] private int _punchVibrato = 5;
         [SerializeField] private float _punchDuration = 0.2f;
