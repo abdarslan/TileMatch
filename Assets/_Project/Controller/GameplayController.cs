@@ -96,19 +96,14 @@ namespace TileMatch.Controller
 
         private void OnNextLevelRequest(NextLevelRequestSignal signal)
         {
-            _currentLevelIndex++;
-            if (_sequence != null && _currentLevelIndex < _sequence.Length)
+            if (_sequence != null && _sequence.Length > 0)
             {
-                StartLevel(_sequence[_currentLevelIndex]);
-            }
-            else
-            {
-                Debug.Log("[GameplayController] YOU BEAT ALL LEVELS! Looping back to level 1.");
-                _currentLevelIndex = 0;
-                if (_sequence != null && _sequence.Length > 0)
+                if (_currentLevelIndex >= _sequence.Length)
                 {
-                    StartLevel(_sequence[_currentLevelIndex]);
+                    Debug.Log("[GameplayController] YOU BEAT ALL LEVELS! Looping back to level 1.");
+                    _currentLevelIndex = 0;
                 }
+                StartLevel(_sequence[_currentLevelIndex]);
             }
         }
 
