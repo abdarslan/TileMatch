@@ -103,7 +103,7 @@ namespace TileMatch.View.UI
         {
             if (_continueButton != null) _continueButton.interactable = false;
             _hapticService?.OnUIButtonTapped();
-            _signalBus.Fire(new NextLevelRequestSignal());
+            _signalBus.Fire(new ReturnToMenuRequestSignal());
         }
 
         private void OnRestartClicked()
