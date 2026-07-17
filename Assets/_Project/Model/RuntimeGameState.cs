@@ -2,6 +2,11 @@ using System.Collections.Generic;
 
 namespace TileMatch.Model
 {
+    /// <summary>
+    /// Holds the fully mutable, current logical state of the gameplay board.
+    /// Deep-copied from <see cref="LevelData"/> at level start. Modifying this
+    /// object drives all controller logic without dirtying the underlying ScriptableObject.
+    /// </summary>
     public class RuntimeGameState
     {
         public const int RackCapacity = 6;

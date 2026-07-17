@@ -9,6 +9,11 @@ using UnityEngine;
 
 namespace TileMatch.View
 {
+    /// <summary>
+    /// The primary View component for the gameplay scene. Listens to routing signals
+    /// from the Controller layer and delegates physical animations to the <see cref="BoardAnimator"/>
+    /// and <see cref="OrderTrayView"/>. Maintains the logical-to-visual mapping of all spawned tiles.
+    /// </summary>
     public class VisualView : MonoBehaviour
     {
         [SerializeField] private TileView _tilePrefab;

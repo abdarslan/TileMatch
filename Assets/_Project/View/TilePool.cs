@@ -3,6 +3,10 @@ using UnityEngine;
 
 namespace TileMatch.View
 {
+    /// <summary>
+    /// A simple object pool for <see cref="TileView"/> instances. Prevents heavy 
+    /// instantiation/destruction overhead during gameplay and level transitions.
+    /// </summary>
     public class TilePool
     {
         private readonly TileView _prefab;

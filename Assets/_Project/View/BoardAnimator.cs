@@ -10,6 +10,11 @@ using UnityEngine;
 
 namespace TileMatch.View
 {
+    /// <summary>
+    /// A pure C# companion to VisualView that owns all DOTween animations and 
+    /// manages the safe cleanup of Tweens when the board is cleared or destroyed.
+    /// Uses UniTask to provide awaitable, asynchronous visual sequences.
+    /// </summary>
     public class BoardAnimator
     {
         public struct Settings

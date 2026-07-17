@@ -10,6 +10,11 @@ using DG.Tweening;
 
 namespace TileMatch.View.UI
 {
+    /// <summary>
+    /// UI View for the end-game result screen (Win/Lose). Subscribes to 
+    /// <see cref="VisualFeedbackFinishedSignal"/> to pop up *after* the board 
+    /// has finished animating its win/lose sequences.
+    /// </summary>
     public class ResultScreenView : MonoBehaviour
     {
         [SerializeField] private TextMeshProUGUI _resultText;

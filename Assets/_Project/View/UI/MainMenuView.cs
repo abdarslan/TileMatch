@@ -8,6 +8,10 @@ using UnityEngine.UI;
 
 namespace TileMatch.View.UI
 {
+    /// <summary>
+    /// UI View for the main menu. Listens for the Play button click to dispatch a
+    /// <see cref="StartGameRequestSignal"/> and toggles its own visibility based on <see cref="GameState"/>.
+    /// </summary>
     public class MainMenuView : MonoBehaviour
     {
         [SerializeField] private UnityEngine.UI.Button _playButton;

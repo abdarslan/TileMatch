@@ -3,6 +3,10 @@ using UnityEngine;
 
 namespace TileMatch.Model
 {
+    /// <summary>
+    /// Pure data struct representing a single tile on the board.
+    /// Used both for Editor serialization and runtime state tracking.
+    /// </summary>
     [System.Serializable]
     public struct TileData
     {

@@ -7,6 +7,10 @@ using UnityEngine.UI;
 
 namespace TileMatch.View.UI
 {
+    /// <summary>
+    /// UI View for the in-game HUD (e.g., restart button). 
+    /// Only active during the <see cref="GameState.Playing"/> state.
+    /// </summary>
     public class GameplayHUDView : MonoBehaviour
     {
         [SerializeField] private Button _restartButton;
