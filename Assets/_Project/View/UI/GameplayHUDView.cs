@@ -1,4 +1,4 @@
-using TileMatch.Controller;
+using TileMatch.Model;
 using TileMatch.Service;
 using TileMatch.Signal;
 using TileMatch.Signal.UI;
@@ -47,11 +47,11 @@ namespace TileMatch.View.UI
 
         private void OnGameStateChanged(GameStateChangedSignal signal)
         {
-            if (signal.NewState == GameplayController.GameState.Playing)
+            if (signal.NewState == GameState.Playing)
             {
                 gameObject.SetActive(true);
             }
-            else if (signal.NewState == GameplayController.GameState.Menu)
+            else if (signal.NewState == GameState.Menu)
             {
                 gameObject.SetActive(false);
             }

@@ -199,10 +199,15 @@ namespace TileMatch.View
         [SerializeField] private float _punchDuration = 0.2f;
 
         [SerializeField] private float _punchElasticity = 1f;
+        public event Action OnTrayVisualCompletion;
+
         private async UniTask PlayCompletionAnimationAsync(CancellationToken ct)
         {
             if (_orderTray == null) return;
             CachePositionIfNeeded();
+
+            OnTrayVisualCompletion?.Invoke();
+
             // ordertray animates with last order reah scaling up and down back
             _orderTray.DOPunchScale(Vector3.one * _punchScale, _punchDuration, _punchVibra, _punchElasticity);
 

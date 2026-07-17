@@ -12,6 +12,7 @@ namespace TileMatch.View
     {
         public int TileID { get; private set; }
         public int TypeID { get; private set; }
+        public bool IsGhost { get; private set; }
 
         [SerializeField] private SpriteRenderer _iconRenderer;
         [SerializeField] private Transform _tileBg;
@@ -19,11 +20,12 @@ namespace TileMatch.View
         [SerializeField] private ParticleSystem _particleSystem;
         [SerializeField] private float _blockedBrightness = 0.4f;
 
-        public void Setup(int tileID, int typeID, Sprite icon)
+        public void Setup(int tileID, int typeID, Sprite icon, bool isGhost = false)
         {
             ResetVisuals();
             TileID = tileID;
             TypeID = typeID;
+            IsGhost = isGhost;
             _iconRenderer.sprite = icon;
         }
 
@@ -50,7 +52,7 @@ namespace TileMatch.View
             _tileBg.localScale = Vector3.one;
         }
 
-        public void PlayDissappearAnimation()
+        public void PlayDisappearAnimation()
         {
             _particleSystem.Play();
             _tileBg.DOScale(Vector3.zero, 0.15f).SetEase(Ease.InBack).OnComplete(() => 
@@ -71,6 +73,12 @@ namespace TileMatch.View
         public void DisableBg()
         {
             _tileBg.gameObject.SetActive(false);
+        }
+
+        public Vector3 GetIconWorldOffset()
+        {
+            if (_iconRenderer == null) return Vector3.zero;
+            return _iconRenderer.transform.position - transform.position;
         }
     }
 }

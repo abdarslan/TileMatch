@@ -1,6 +1,6 @@
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
-using TileMatch.Controller;
+using TileMatch.Model;
 using TileMatch.Service;
 using TileMatch.Signal.UI;
 using UnityEngine;
@@ -21,13 +21,17 @@ namespace TileMatch.View.UI
             _signalBus = signalBus;
             _hapticService = hapticService;
 
+#if UNITY_EDITOR
             Debug.Log($"[MainMenuView] Initialize called. PlayButton is {(_playButton != null ? "Assigned" : "NULL")}");
+#endif
 
             if (_playButton != null)
             {
                 _playButton.onClick.RemoveAllListeners();
                 _playButton.onClick.AddListener(OnPlayClicked);
+#if UNITY_EDITOR
                 Debug.Log("[MainMenuView] Successfully wired OnPlayClicked listener!");
+#endif
             }
             else
             {
@@ -47,8 +51,8 @@ namespace TileMatch.View.UI
 
         private void OnGameStateChanged(GameStateChangedSignal signal)
         {
-            gameObject.SetActive(signal.NewState == GameplayController.GameState.Menu);
-            if (signal.NewState == GameplayController.GameState.Menu)
+            gameObject.SetActive(signal.NewState == GameState.Menu);
+            if (signal.NewState == GameState.Menu)
             {
                 _hasClickedPlay = false;
                 if (_playButton != null) _playButton.interactable = true;
@@ -61,8 +65,9 @@ namespace TileMatch.View.UI
             _hasClickedPlay = true;
 
             _hapticService?.OnUIButtonTapped();
-
+#if UNITY_EDITOR
             Debug.Log("[MainMenuView] Play Button Clicked! Firing StartGameRequestSignal.");
+#endif
             // Disable button interaction immediately so player can't click again
             _playButton.interactable = false;
             _signalBus.Fire(new StartGameRequestSignal());

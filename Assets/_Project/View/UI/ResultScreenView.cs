@@ -1,5 +1,5 @@
 using TMPro;
-using TileMatch.Controller;
+using TileMatch.Model;
 using TileMatch.Service;
 using TileMatch.Signal;
 using TileMatch.Signal.UI;
@@ -64,7 +64,7 @@ namespace TileMatch.View.UI
 
         private void OnGameStateChanged(GameStateChangedSignal signal)
         {
-            if (signal.NewState == GameplayController.GameState.Menu || signal.NewState == GameplayController.GameState.Playing)
+            if (signal.NewState == GameState.Menu || signal.NewState == GameState.Playing)
             {
                 gameObject.SetActive(false);
             }

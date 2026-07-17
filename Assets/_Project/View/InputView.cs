@@ -44,7 +44,7 @@ namespace TileMatch.View
                 if (hit.collider == null) continue;
 
                 TileView tile = hit.collider.GetComponent<TileView>();
-                if (tile != null && tile.SortingOrder > maxSortingOrder)
+                if (tile != null && !tile.IsGhost && tile.SortingOrder > maxSortingOrder)
                 {
                     maxSortingOrder = tile.SortingOrder;
                     topTile = tile;
