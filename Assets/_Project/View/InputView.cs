@@ -53,7 +53,9 @@ namespace TileMatch.View
 
             if (topTile == null) return;
 
+#if UNITY_EDITOR
             Debug.Log($"[InputView] Tap detected on TileID {topTile.TileID} with sorting order {maxSortingOrder}.");
+#endif
             _signalBus.Fire(new TileTapIntentSignal { TileID = topTile.TileID });
         }
 

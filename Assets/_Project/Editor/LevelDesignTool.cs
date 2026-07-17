@@ -962,7 +962,9 @@ namespace TileMatch.Editor
             _showBlocking   = true;
             _lastValidation = LevelValidator.Validate(_level);
 
+#if UNITY_EDITOR
             Debug.Log($"[LevelDesignTool] Baked {allTiles.Count} tiles. " +
+#endif
                       $"Clickable: {_bakedClickable.Count}. " +
                       $"Solvable: {_lastValidation.IsSolvable}");
 

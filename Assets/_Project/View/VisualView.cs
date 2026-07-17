@@ -16,6 +16,8 @@ namespace TileMatch.View
         [SerializeField] private ParticleSystem _confettiParticles;
         [Header("Board")]
         [SerializeField] private Transform _boardRoot;
+        private const int FlightSortingOrder = 30000;
+
         [Header("Order Trays")]
         [SerializeField] private OrderTrayView[] _traySlots;
         [Header("Rack")]
@@ -203,7 +205,7 @@ namespace TileMatch.View
             _activeRoutings++;
             tray.EnqueueTileFlight(async () =>
             {
-                view.SetSortingOrder(30000);
+                view.SetSortingOrder(FlightSortingOrder);
                 Vector3 dest = tray.GetSlotWorldPosition(itemIdx);
                 await _animator.AnimateTileToDestinationAsync(view, dest, returnToPool: true, ct);
                 if (!ct.IsCancellationRequested) tray.AddTile(itemIdx);
@@ -236,7 +238,7 @@ namespace TileMatch.View
             Sprite icon = _typeIcons != null && typeID > 0 && typeID < _typeIcons.Length ? _typeIcons[typeID] : null;
             ghost.Setup(tileID: -1, typeID: typeID, icon: icon, isGhost: true);
             ghost.DisableBg();
-            ghost.SetSortingOrder(30000);
+            ghost.SetSortingOrder(FlightSortingOrder);
 
             _activeRoutings++;
             tray.EnqueueTileFlight(async () =>
@@ -268,7 +270,7 @@ namespace TileMatch.View
 
         private async UniTaskVoid RouteTileToRackAsync(TileView view, RackSlotView slot, int slotIndex, Sprite icon, CancellationToken ct)
         {
-            view.SetSortingOrder(30000);
+            view.SetSortingOrder(FlightSortingOrder);
             await _animator.AnimateTileToDestinationAsync(view, slot.transform.position, returnToPool: true, ct);
             if (!ct.IsCancellationRequested && _rackLogicalState != null && _rackLogicalState[slotIndex]) 
                 slot.SetIcon(icon);
