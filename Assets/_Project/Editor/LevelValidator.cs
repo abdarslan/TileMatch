@@ -80,7 +80,7 @@ namespace TileMatch.Editor
         private static SimResult RunSimulation(
             Dictionary<int, SimTile> originalTiles,
             Dictionary<int, List<int>> unblocks,
-            List<OrderData> orders,
+            IReadOnlyList<OrderData> orders,
             ValidationResult result)
         {
             // Deep-copy mutable state

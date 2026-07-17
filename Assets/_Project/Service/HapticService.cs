@@ -1,4 +1,6 @@
 using UnityEngine;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 
 namespace TileMatch.Service
 {
@@ -30,7 +32,7 @@ namespace TileMatch.Service
 
             // DUMMY CALL: This is never executed, but its presence in the compiled IL code 
             // forces Unity's static analyzer to automatically add the 
-            // <uses-permission android:name="android.permission.VIBRATE"/> 
+            // <uses-permission android:name=\"android.permission.VIBRATE\"/> 
             // to the AndroidManifest.xml during the build process!
             if (Application.isEditor && !_enabled && _enabled) 
             {
@@ -84,49 +86,26 @@ namespace TileMatch.Service
         /// An entire order is completed. Rigid, very crisp — the premium "snap"
         /// of a full set being collected.
         /// </summary>
-        public void OnOrderCompleted()
+        public void OnOrderCompleted(CancellationToken ct = default)
         {
             if (!_enabled) return;
             Vibration.VibrateIOS(ImpactFeedbackStyle.Rigid);
 #if UNITY_ANDROID
-            PlayOrderCompletedSequenceAsync().Forget();
+            PlayOrderCompletedSequenceAsync(ct).Forget();
 #endif
         }
-
-#if UNITY_ANDROID
-        private async Cysharp.Threading.Tasks.UniTaskVoid PlayOrderCompletedSequenceAsync()
-        {
-            // 5 = EFFECT_HEAVY_CLICK
-            TriggerAndroidPredefinedEffect(5, 30);
-            await Cysharp.Threading.Tasks.UniTask.Delay(80);
-            // 2 = EFFECT_TICK
-            TriggerAndroidPredefinedEffect(2, 10);
-        }
-#endif
 
         /// <summary>
         /// Level won. Celebratory notification-style haptic — iOS success buzz.
         /// </summary>
-        public void OnLevelWon()
+        public void OnLevelWon(CancellationToken ct = default)
         {
             if (!_enabled) return;
             Vibration.VibrateIOS(NotificationFeedbackStyle.Success);
 #if UNITY_ANDROID
-            PlayWinTickSequenceAsync().Forget();
+            PlayWinTickSequenceAsync(ct).Forget();
 #endif
         }
-
-#if UNITY_ANDROID
-        private async Cysharp.Threading.Tasks.UniTaskVoid PlayWinTickSequenceAsync()
-        {
-            // Sequence of 10 ticks with 40ms delay between them
-            for (int i = 0; i < 10; i++)
-            {
-                TriggerAndroidPredefinedEffect(2, 10); // tick
-                await Cysharp.Threading.Tasks.UniTask.Delay(40);
-            }
-        }
-#endif
 
         /// <summary>
         /// Rack is full — game over. Heavy, unmissable impact.
@@ -167,6 +146,34 @@ namespace TileMatch.Service
         }
 
 #if UNITY_ANDROID
+        private async Cysharp.Threading.Tasks.UniTaskVoid PlayOrderCompletedSequenceAsync(CancellationToken ct)
+        {
+            // 5 = EFFECT_HEAVY_CLICK
+            TriggerAndroidPredefinedEffect(5, 30);
+            await Cysharp.Threading.Tasks.UniTask.Delay(80, cancellationToken: ct).SuppressCancellationThrow();
+            if (ct.IsCancellationRequested) return;
+            // 2 = EFFECT_TICK
+            TriggerAndroidPredefinedEffect(2, 10);
+        }
+
+        private async Cysharp.Threading.Tasks.UniTaskVoid PlayWinTickSequenceAsync(CancellationToken ct)
+        {
+            // Sequence of 10 ticks with 40ms delay between them (400ms total)
+            for (int i = 0; i < 10; i++)
+            {
+                TriggerAndroidPredefinedEffect(2, 10); // tick
+                await Cysharp.Threading.Tasks.UniTask.Delay(40, cancellationToken: ct).SuppressCancellationThrow();
+                if (ct.IsCancellationRequested) return;
+            }
+
+            // Wait an additional 160ms to sync the final hit precisely at 0.6s with the VisualFeedbackFinishedSignal
+            await Cysharp.Threading.Tasks.UniTask.Delay(160, cancellationToken: ct).SuppressCancellationThrow();
+            if (ct.IsCancellationRequested) return;
+
+            // 11th hit perfectly synced with the Rack Drop / Win Screen
+            TriggerAndroidPredefinedEffect(1, 30); // 1 = EFFECT_DOUBLE_CLICK
+        }
+
         /// <summary>
         /// Attempts to trigger a hardware-level Predefined Effect (like EFFECT_TICK = 2) on API 29+.
         /// Falls back to a standard millisecond duration if the API is too old.

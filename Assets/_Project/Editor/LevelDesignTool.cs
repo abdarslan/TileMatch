@@ -241,17 +241,17 @@ namespace TileMatch.Editor
         private void InitializeReorderableList()
         {
             if (_level == null) return;
-            _orderList = new ReorderableList(_level.pendingOrders, typeof(OrderData), true, false, true, true);
+            _orderList = new ReorderableList(_level.EditorPendingOrders, typeof(OrderData), true, false, true, true);
             
             _orderList.elementHeightCallback = (int index) => {
-                if (index >= _level.pendingOrders.Count) return 40f;
-                var order = _level.pendingOrders[index];
+                if (index >= _level.EditorPendingOrders.Count) return 40f;
+                var order = _level.EditorPendingOrders[index];
                 return 56f + (order.requiredTypeIDs.Count * 32f);
             };
 
             _orderList.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) => {
-                if (index >= _level.pendingOrders.Count) return;
-                var order = _level.pendingOrders[index];
+                if (index >= _level.EditorPendingOrders.Count) return;
+                var order = _level.EditorPendingOrders[index];
                 
                 rect.y += 8; 
                 rect.height -= 16;
@@ -769,7 +769,7 @@ namespace TileMatch.Editor
 
         private void SyncOrdersWithGrid()
         {
-            if (_level == null || _level.pendingOrders == null) return;
+            if (_level == null || _level.EditorPendingOrders == null) return;
 
             Dictionary<int, int> gridCounts = new Dictionary<int, int>();
             for (int l = 0; l < _layerCount; l++)
@@ -789,7 +789,7 @@ namespace TileMatch.Editor
             }
 
             Dictionary<int, int> orderCounts = new Dictionary<int, int>();
-            foreach (var order in _level.pendingOrders)
+            foreach (var order in _level.EditorPendingOrders)
             {
                 foreach (var typeID in order.requiredTypeIDs)
                 {
@@ -810,7 +810,7 @@ namespace TileMatch.Editor
                 while (current < target)
                 {
                     OrderData targetOrder = null;
-                    foreach (var order in _level.pendingOrders)
+                    foreach (var order in _level.EditorPendingOrders)
                     {
                         if (order.requiredTypeIDs.Count > 0 && order.requiredTypeIDs.Count < 3 && order.requiredTypeIDs[0] == typeID)
                         {
@@ -821,7 +821,7 @@ namespace TileMatch.Editor
                     if (targetOrder == null)
                     {
                         targetOrder = new OrderData { requiredTypeIDs = new List<int>() };
-                        _level.pendingOrders.Add(targetOrder);
+                        _level.EditorPendingOrders.Add(targetOrder);
                     }
                     targetOrder.requiredTypeIDs.Add(typeID);
                     current++;
@@ -838,11 +838,11 @@ namespace TileMatch.Editor
                 while (current > target)
                 {
                     OrderData targetOrder = null;
-                    for (int i = _level.pendingOrders.Count - 1; i >= 0; i--)
+                    for (int i = _level.EditorPendingOrders.Count - 1; i >= 0; i--)
                     {
-                        if (_level.pendingOrders[i].requiredTypeIDs.Contains(typeID))
+                        if (_level.EditorPendingOrders[i].requiredTypeIDs.Contains(typeID))
                         {
-                            targetOrder = _level.pendingOrders[i];
+                            targetOrder = _level.EditorPendingOrders[i];
                             break;
                         }
                     }
@@ -856,11 +856,11 @@ namespace TileMatch.Editor
                 }
             }
 
-            for (int i = _level.pendingOrders.Count - 1; i >= 0; i--)
+            for (int i = _level.EditorPendingOrders.Count - 1; i >= 0; i--)
             {
-                if (_level.pendingOrders[i].requiredTypeIDs.Count == 0)
+                if (_level.EditorPendingOrders[i].requiredTypeIDs.Count == 0)
                 {
-                    _level.pendingOrders.RemoveAt(i);
+                    _level.EditorPendingOrders.RemoveAt(i);
                     changed = true;
                 }
             }
@@ -894,7 +894,7 @@ namespace TileMatch.Editor
             _orderFoldout = EditorGUILayout.Foldout(_orderFoldout, "Pending Orders", true, EditorStyles.foldoutHeader);
             if (!_orderFoldout) return;
 
-            if (_orderList == null && _level.pendingOrders != null)
+            if (_orderList == null && _level.EditorPendingOrders != null)
                 InitializeReorderableList();
 
             if (_orderList != null)
@@ -950,7 +950,7 @@ namespace TileMatch.Editor
             List<TileData> allTiles = BuildTileList();
             BakeBlockingRelationships(allTiles);
 
-            _level.activeTiles = allTiles;
+            _level.EditorActiveTiles = allTiles;
             EditorUtility.SetDirty(_level);
             AssetDatabase.SaveAssets();
 
@@ -1232,10 +1232,10 @@ namespace TileMatch.Editor
 
         private void ImportFromLevel()
         {
-            if (_level == null || _level.activeTiles.Count == 0) return;
+            if (_level == null || _level.EditorActiveTiles.Count == 0) return;
 
             int maxCol = 0, maxRow = 0, maxLayer = 0;
-            foreach (var t in _level.activeTiles)
+            foreach (var t in _level.EditorActiveTiles)
             {
                 int c = Mathf.RoundToInt(t.visualPosition.x / 0.5f);
                 int r = Mathf.RoundToInt(t.visualPosition.y / 0.5f);
@@ -1250,7 +1250,7 @@ namespace TileMatch.Editor
             _layerCount = maxLayer + 1;
             InitCells();
 
-            foreach (var t in _level.activeTiles)
+            foreach (var t in _level.EditorActiveTiles)
             {
                 int c = Mathf.RoundToInt(t.visualPosition.x / 0.5f);
                 int r = Mathf.RoundToInt(t.visualPosition.y / 0.5f);
