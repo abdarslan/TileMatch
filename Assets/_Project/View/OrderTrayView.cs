@@ -27,8 +27,14 @@ namespace TileMatch.View
         private Vector3 _originalLocalPosition;
         private bool _isPositionCached;
 
+        public event Action OnTrayVisualCompletion;
+
         [Header("Animation Settings")]
         [SerializeField] private float _slideYOffset = 1000f;
+        [SerializeField] private float _punchScale = 0.2f;
+        [SerializeField] private int _punchVibrato = 5;
+        [SerializeField] private float _punchDuration = 0.2f;
+        [SerializeField] private float _punchElasticity = 1f;
 
         private void Awake()
         {
@@ -194,13 +200,6 @@ namespace TileMatch.View
                 return _itemImages[index].transform.position;
             return transform.position;
         }
-        [SerializeField] private float _punchScale = 0.2f;
-        [SerializeField] private int _punchVibrato = 5;
-        [SerializeField] private float _punchDuration = 0.2f;
-
-        [SerializeField] private float _punchElasticity = 1f;
-        public event Action OnTrayVisualCompletion;
-
         private async UniTask PlayCompletionAnimationAsync(CancellationToken ct)
         {
             if (_orderTray == null) return;

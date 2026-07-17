@@ -10,14 +10,18 @@ namespace TileMatch.View
     [RequireComponent(typeof(Collider2D))]
     public class TileView : MonoBehaviour
     {
+        [Header("State")]
         public int TileID { get; private set; }
         public int TypeID { get; private set; }
         public bool IsGhost { get; private set; }
+        public int SortingOrder { get; private set; }
 
+        [Header("Visual References")]
         [SerializeField] private SpriteRenderer _iconRenderer;
         [SerializeField] private Transform _tileBg;
-
         [SerializeField] private ParticleSystem _particleSystem;
+
+        [Header("Settings")]
         [SerializeField] private float _blockedBrightness = 0.4f;
 
         public void Setup(int tileID, int typeID, Sprite icon, bool isGhost = false)
@@ -28,8 +32,6 @@ namespace TileMatch.View
             IsGhost = isGhost;
             _iconRenderer.sprite = icon;
         }
-
-        public int SortingOrder { get; private set; }
 
         public void SetSortingOrder(int order)
         {
