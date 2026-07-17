@@ -1,5 +1,5 @@
 {
-    "dotnet.defaultSolution": "TileMatch.sln",
+    "dotnet.defaultSolution": "TileMatch.slnx",
     "dotnet.dotnetPath": "C:/Program Files/dotnet/dotnet.exe",
     "dotrush.roslyn.dotnetSdkDirectory": "C:/Program Files/dotnet/sdk/10.0.203",
     "dotrush.msbuildProperties": {
