@@ -195,7 +195,7 @@ namespace TileMatch.View
             return transform.position;
         }
         [SerializeField] private float _punchScale = 0.2f;
-        [SerializeField] private int _punchVibra = 5;
+        [SerializeField] private int _punchVibrato = 5;
         [SerializeField] private float _punchDuration = 0.2f;
 
         [SerializeField] private float _punchElasticity = 1f;
@@ -209,7 +209,7 @@ namespace TileMatch.View
             OnTrayVisualCompletion?.Invoke();
 
             // ordertray animates with last order reah scaling up and down back
-            _orderTray.DOPunchScale(Vector3.one * _punchScale, _punchDuration, _punchVibra, _punchElasticity);
+            _orderTray.DOPunchScale(Vector3.one * _punchScale, _punchDuration, _punchVibrato, _punchElasticity);
 
 
 
